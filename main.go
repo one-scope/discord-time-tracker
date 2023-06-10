@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/one-scope/discord-time-tracker/internal/app"
 	"github.com/one-scope/discord-time-tracker/internal/discordbot"
 )
 
@@ -16,10 +17,11 @@ func main() {
 	flag.Parse()
 
 	// App初期化
-	tApp, tError := newApp(tConfigPath)
+	tApp, tError := app.New(tConfigPath)
 	if tError != nil {
 		log.Fatal(tError)
 	}
+	defer tApp.LogFile.Close()
 
 	// DiscordBot並列起動
 	if tError := discordbot.Start(tApp.DiscordBot); tError != nil {

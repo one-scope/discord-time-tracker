@@ -9,5 +9,6 @@ services:
     ports:
       - 8033:8080
     volumes:
-      - ./data:/data:rw
+      - ./data:/var/lib:rw
+      - ./log:/var/log:rw
     network_mode: bridge

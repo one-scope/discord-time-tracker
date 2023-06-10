@@ -1,4 +1,4 @@
-FROM golang:1.20.4 as server
+FROM golang:1.19.4 as server
 
 WORKDIR /workdir
 
@@ -6,7 +6,6 @@ COPY . .
 
 RUN set -x \
     && go build \
-    -mod=mod \
     -ldflags="-s -w" \
     -trimpath \
     -o server
