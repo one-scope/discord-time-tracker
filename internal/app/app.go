@@ -30,7 +30,7 @@ func New(aConfigPath string) (*App, error) {
 	tApp := &App{}
 
 	// DiscordBot初期化
-	tApp.DiscordBot, tError = discordbot.New(tConfig.DiscordBot.DiscordBotToken)
+	tApp.DiscordBot, tError = discordbot.New(tConfig.DiscordBot.DiscordBotToken, tConfig.DiscordBot.ExecutionTiming)
 	if tError != nil {
 		return nil, tError
 	}

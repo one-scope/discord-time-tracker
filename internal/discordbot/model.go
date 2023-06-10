@@ -1,9 +1,14 @@
 package discordbot
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"github.com/bwmarrin/discordgo"
+	"github.com/robfig/cron/v3"
+)
 
 type DiscordBot struct {
-	Session *discordgo.Session
+	Session         *discordgo.Session
+	Cron            *cron.Cron
+	ExecutionTiming string
 }
 
 // 何かしらのイベントがあったとき。

@@ -4,34 +4,46 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/robfig/cron/v3"
 )
 
-func New(aToken string) (*DiscordBot, error) {
+func New(aToken string, aExecutionTiming string) (*DiscordBot, error) {
 	tSession, tError := discordgo.New(aToken)
 	if tError != nil {
 		return nil, tError
 	}
+	tCron := cron.New()
 	tBot := &DiscordBot{
-		Session: tSession,
+		Session:         tSession,
+		Cron:            tCron,
+		ExecutionTiming: aExecutionTiming,
 	}
 	return tBot, nil
 }
 
-func Start(aBot *DiscordBot) error {
+func (aBot *DiscordBot) Start() error {
+	// イベント実行
 	aBot.setEventHandlers()
 	if tError := aBot.Session.Open(); tError != nil {
 		return tError
 	}
-	// tTicker := time.NewTicker(5 * time.Minute)
-	// go func() {
-	// 	for range tTicker.C {
-	// 		log.Println("flush discord activity")
-	// 		if tError := tSession.flushStatuses(); tError != nil {
-	// 			log.Println("failed to flush statuses:", tError)
-	// 		}
-	// 	}
-	// }()
 
+	// 定期実行
+	if _, tError := aBot.Cron.AddFunc(aBot.ExecutionTiming, func() {
+		log.Println("save data")
+	}); tError != nil {
+		return tError
+	}
+	aBot.Cron.Start()
+
+	return nil
+}
+
+func (aBot *DiscordBot) Close() error {
+	aBot.Cron.Stop()
+	if tError := aBot.Session.Close(); tError != nil {
+		return tError
+	}
 	return nil
 }
 

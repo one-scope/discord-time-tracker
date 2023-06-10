@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/one-scope/discord-time-tracker/internal/app"
-	"github.com/one-scope/discord-time-tracker/internal/discordbot"
 )
 
 func main() {
@@ -24,16 +23,17 @@ func main() {
 	defer tApp.LogFile.Close()
 
 	// DiscordBot並列起動
-	if tError := discordbot.Start(tApp.DiscordBot); tError != nil {
+	if tError := tApp.DiscordBot.Start(); tError != nil {
 		log.Fatal(tError)
 	}
 
 	// 常駐化
-	stopBot := make(chan os.Signal, 1)
-	signal.Notify(stopBot, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	<-stopBot
+	tBot := make(chan os.Signal, 1)
+	signal.Notify(tBot, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	<-tBot
 
-	if tError := tApp.DiscordBot.Session.Close(); tError != nil {
+	// DiscordBot停止
+	if tError := tApp.DiscordBot.Close(); tError != nil {
 		log.Fatal(tError)
 	}
 }
