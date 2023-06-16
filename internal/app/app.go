@@ -5,18 +5,19 @@ import (
 	"log"
 	"os"
 
-	"github.com/one-scope/discord-time-tracker/internal/discordbot"
+	"github.com/one-scope/discord-time-tracker/internal/config"
+	"github.com/one-scope/discord-time-tracker/internal/discord"
 	"gopkg.in/yaml.v2"
 )
 
 type App struct {
-	DiscordBot *discordbot.DiscordBot
+	DiscordBot *discord.Bot
 	LogFile    *os.File
 }
 
 func New(aConfigPath string) (*App, error) {
 	// 設定ファイル読み込み
-	tConfig := Config{}
+	tConfig := config.Config{}
 	tFile, tError := os.OpenFile(aConfigPath, os.O_RDONLY, 0)
 	if tError != nil {
 		return nil, tError
@@ -30,7 +31,7 @@ func New(aConfigPath string) (*App, error) {
 	tApp := &App{}
 
 	// DiscordBot初期化
-	tApp.DiscordBot, tError = discordbot.New(tConfig.DiscordBot.DiscordBotToken, tConfig.DiscordBot.ExecutionTiming)
+	tApp.DiscordBot, tError = discord.New(&tConfig.DiscordBot)
 	if tError != nil {
 		return nil, tError
 	}

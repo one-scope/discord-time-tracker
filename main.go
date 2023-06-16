@@ -20,20 +20,27 @@ func main() {
 	if tError != nil {
 		log.Fatal(tError)
 	}
-	defer tApp.LogFile.Close()
+	defer func() {
+		// logファイル閉じる
+		if tError := tApp.LogFile.Close(); tError != nil {
+			log.Fatal(tError)
+		}
+	}()
+	log.Println("Log Start")
 
-	// DiscordBot並列起動
+	// DiscordBot起動
 	if tError := tApp.DiscordBot.Start(); tError != nil {
 		log.Fatal(tError)
 	}
+	defer func() {
+		// DiscordBot停止
+		if tError := tApp.DiscordBot.Close(); tError != nil {
+			log.Fatal(tError)
+		}
+	}()
 
 	// 常駐化
 	tBot := make(chan os.Signal, 1)
 	signal.Notify(tBot, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-tBot
-
-	// DiscordBot停止
-	if tError := tApp.DiscordBot.Close(); tError != nil {
-		log.Fatal(tError)
-	}
 }
