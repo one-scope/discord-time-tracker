@@ -17,10 +17,10 @@ func New(aConfig *config.DiscordBotConfig) (*Bot, error) {
 	if tError != nil {
 		return nil, tError
 	}
-	tSession.Identify.Intents = discordgo.IntentsAll
+	tSession.Identify.Intents = discordgo.IntentsAll // 現在、テストのため全て許可
 	tCron := cron.New()
 	tManager := &dataManager{
-		DataDir:       aConfig.DataDir,
+		DataPathBase:  aConfig.DataPathBase,
 		UsersMutex:    sync.Mutex{},
 		StatusesMutex: sync.Mutex{},
 		Users:         map[string]*user{},
@@ -56,8 +56,10 @@ func (aBot *Bot) Close() error {
 	return aBot.Session.Close()
 }
 
+// エラー時に指定したチャンネルにエラーを送信し、続行。
 func (aBot *Bot) setEventHandlers() {
 	// ボットが起動したとき。
+	// 未実装：ボットが起動したときに、ユーザーの情報(ID,Name,Role等)を取得する。
 	aBot.onEvent(func(aSession *discordgo.Session, aEvent *discordgo.Event) {
 		var tMapRawData map[string]interface{}
 		json.Unmarshal(aEvent.RawData, &tMapRawData)
@@ -107,6 +109,7 @@ func (aBot *Bot) setEventHandlers() {
 	})
 }
 
+// ステータスだけじゃなくて、ユーザー情報も取得する。
 func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Event, aRawData map[string]interface{}) {
 	//全員分の音声状況を取得。初期状態にする。
 	// これを実行中に onVoiceStateUpdate が起こると、死なないにしろ順序がおかしくなるかも。

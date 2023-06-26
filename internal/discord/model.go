@@ -16,11 +16,11 @@ const (
 	oldMember     IsMember     = false
 	online        OnlineStatus = "online"
 	offline       OnlineStatus = "offline"
-	unknownOnline OnlineStatus = "unknown" //
+	unknownOnline OnlineStatus = "unknown"
 )
 
 type dataManager struct {
-	DataDir       string
+	DataPathBase  string
 	UsersMutex    sync.Mutex
 	StatusesMutex sync.Mutex
 	Users         map[string]*user     // key: UserID
@@ -28,14 +28,14 @@ type dataManager struct {
 }
 
 type user struct {
-	UserID   string
+	UserID   string // キーがあるからいらないかも
 	UserName string
 	IsMember IsMember //現在ギルドに所属しているか
 	Roles    []string
 }
 
 type status struct {
-	UserID       string
+	UserID       string // キーがあるからいらないかも
 	Timestamp    time.Time
 	ChannelID    string
 	VoiceState   string
@@ -49,7 +49,6 @@ type Bot struct {
 	DataManager     *dataManager
 }
 
-// 何かしらのイベントがあったとき。
 func (aBot *Bot) onEvent(aHandler func(*discordgo.Session, *discordgo.Event)) {
 	aBot.Session.AddHandler(aHandler)
 }
