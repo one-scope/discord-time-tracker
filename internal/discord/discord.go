@@ -109,17 +109,33 @@ func (aBot *Bot) setEventHandlers() {
 	})
 }
 
+// 未実装：リファクタリング
 // ステータスだけじゃなくて、ユーザー情報も取得する。
 func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Event, aRawData map[string]interface{}) {
-	//全員分の音声状況を取得。初期状態にする。
-	// これを実行中に onVoiceStateUpdate が起こると、死なないにしろ順序がおかしくなるかも。
-
 	//GuildIDを取得
 	tGuildID, tOk := aRawData["id"].(string)
 	if !tOk {
 		log.Println("failed to convert guild id")
 		return
 	}
+
+	//全員分のユーザー情報を取得。初期状態にする。
+	tMembers, tError := aSession.GuildMembers(tGuildID, "", 1000)
+	if tError != nil {
+		log.Println("failed to get members:", tError)
+		return
+	}
+	for _, tMember := range tMembers {
+		if tMember.User.Bot {
+			continue
+		}
+		if tError := aBot.DataManager.updateUser(tMember, currentMember); tError != nil {
+			log.Println("failed to update user:", tError)
+		}
+	}
+
+	// これを実行中に onVoiceStateUpdate が起こると、死なないにしろ順序がおかしくなるかも。
+	//全員分の音声状況を取得。初期状態にする。
 	tInterfacePresences, tOk := aRawData["presences"].([]interface{})
 	if !tOk {
 		log.Println("failed to convert presences")

@@ -24,10 +24,6 @@ func CreateDataDirectory(aDataBasePath string) error {
 	return os.MkdirAll(filepath.Join(aDataBasePath, statusesDirectoryPath), 0777)
 }
 
-func NewUsersFile(aDataBasePath string) (*os.File, error) {
-	return os.OpenFile(filepath.Join(aDataBasePath, usersDirectoryPath, usersNewJsonFileName), os.O_WRONLY|os.O_CREATE, 0777)
-}
-
 func RenameUserFile(aDataBasePath string) error {
 	return os.Rename(filepath.Join(aDataBasePath, usersDirectoryPath, usersNewJsonFileName), filepath.Join(aDataBasePath, usersDirectoryPath, usersJsonFileName))
 }

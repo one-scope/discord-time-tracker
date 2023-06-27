@@ -74,24 +74,16 @@ func (aManager *dataManager) flushUsersData() error {
 	// ロック
 	aManager.UsersMutex.Lock()
 	defer aManager.UsersMutex.Unlock()
-	// 新規ユーザーファイル作成
-	tUsersFile, tError := fdhandler.NewUsersFile(aManager.DataPathBase)
-	if tError != nil {
-		return fmt.Errorf("failed to create users file: %w", tError)
-	}
-	defer func() {
-		if tError := tUsersFile.Close(); tError != nil {
-			log.Println("failed to close users file: %w", tError)
-		}
-	}()
-
-	var tUsers map[string]*user
+	tUsers := map[string]*user{}
 
 	// ユーザーファイルがあるなら読み込み
 	if fdhandler.IsExistsUsersFile(aManager.DataPathBase) {
 		if tError := fdhandler.DecodeUsersFile(aManager.DataPathBase, &tUsers); tError != nil {
 			return fmt.Errorf("failed to decode users file: %w", tError)
 		}
+	}
+	if tUsers == nil { //Decodeでnilにされることがあるため
+		tUsers = map[string]*user{}
 	}
 
 	// メモリのユーザー情報をファイルのユーザー情報に上書き
