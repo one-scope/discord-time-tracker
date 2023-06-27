@@ -1,10 +1,12 @@
 package discord
 
 import (
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	fdhandler "github.com/one-scope/discord-time-tracker/internal/filedirectoryhandler"
 )
 
 // DataMangager(メモリ)にUser情報を一時保存
@@ -25,7 +27,7 @@ func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOn
 	tNow := time.Now()
 	aManager.StatusesMutex.Lock()
 	defer aManager.StatusesMutex.Unlock()
-	tStatus := &status{
+	tStatus := &statuslog{
 		UserID:       aVoiceState.UserID,
 		ChannelID:    aVoiceState.ChannelID,
 		Timestamp:    tNow,
@@ -49,10 +51,62 @@ func statusMap(aVoiceState *discordgo.VoiceState) string {
 	return "mic-on"
 }
 
-// ステータス情報を保存するとき、User情報があるか確認する。
-// User情報は変化がない時もあるだろうから変更があったか判定した方がよさそう
-func (aManager *dataManager) flushStatuses() func() {
+// 未実装：ステータス情報を保存するとき、User情報があるか確認してなかったらとりにいく。
+// 未実装：User情報は変化がない時もあるだろうから変更があったか判定した方がよさそう
+// 未実装：失敗した場合、リトライする
+// 未実装：バックアップも定期的に作りたいなー
+func (aManager *dataManager) flushData() func() {
 	return func() {
 		log.Println("save data")
+		// データディレクトリ作成
+		if tError := fdhandler.CreateDataDirectory(aManager.DataPathBase); tError != nil {
+			log.Printf("failed to create base data directory: %v", tError)
+			return
+		}
+		if tError := aManager.flushUsersData(); tError != nil {
+			log.Printf("failed to flush users data: %v", tError)
+			return
+		}
 	}
+}
+
+func (aManager *dataManager) flushUsersData() error {
+	// ロック
+	aManager.UsersMutex.Lock()
+	defer aManager.UsersMutex.Unlock()
+	// 新規ユーザーファイル作成
+	tUsersFile, tError := fdhandler.NewUsersFile(aManager.DataPathBase)
+	if tError != nil {
+		return fmt.Errorf("failed to create users file: %w", tError)
+	}
+	defer func() {
+		if tError := tUsersFile.Close(); tError != nil {
+			log.Println("failed to close users file: %w", tError)
+		}
+	}()
+
+	var tUsers map[string]*user
+
+	// ユーザーファイルがあるなら読み込み
+	if fdhandler.IsExistsUsersFile(aManager.DataPathBase) {
+		if tError := fdhandler.DecodeUsersFile(aManager.DataPathBase, &tUsers); tError != nil {
+			return fmt.Errorf("failed to decode users file: %w", tError)
+		}
+	}
+
+	// メモリのユーザー情報をファイルのユーザー情報に上書き
+	for _, tUser := range aManager.Users {
+		tUsers[tUser.UserID] = tUser
+	}
+
+	// メモリのユーザー情報をファイルに書き込み
+	if tError := fdhandler.EncodeUsersFile(aManager.DataPathBase, tUsers); tError != nil {
+		return fmt.Errorf("failed to encode users file: %w", tError)
+	}
+
+	// 古いファイルを新規ユーザーファイルに置き換え
+	if tError := fdhandler.RenameUserFile(aManager.DataPathBase); tError != nil {
+		return fmt.Errorf("failed to rename users file: %w", tError)
+	}
+	return nil
 }

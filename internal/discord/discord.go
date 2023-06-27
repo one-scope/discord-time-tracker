@@ -24,7 +24,7 @@ func New(aConfig *config.DiscordBotConfig) (*Bot, error) {
 		UsersMutex:    sync.Mutex{},
 		StatusesMutex: sync.Mutex{},
 		Users:         map[string]*user{},
-		Statuses:      map[string][]*status{},
+		Statuses:      map[string][]*statuslog{},
 	}
 	tBot := &Bot{
 		Session:         tSession,
@@ -43,7 +43,7 @@ func (aBot *Bot) Start() error {
 	}
 
 	// 定期実行
-	if _, tError := aBot.Cron.AddFunc(aBot.ExecutionTiming, aBot.DataManager.flushStatuses()); tError != nil {
+	if _, tError := aBot.Cron.AddFunc(aBot.ExecutionTiming, aBot.DataManager.flushData()); tError != nil {
 		return tError
 	}
 	aBot.Cron.Start()

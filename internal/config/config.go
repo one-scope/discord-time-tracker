@@ -7,7 +7,7 @@ type Config struct {
 
 type DiscordBotConfig struct {
 	DiscordBotToken string `yaml:"discord_bot_token"`
-	DataDir         string `yaml:"data_dir"`
+	DataPathBase    string `yaml:"data_path_base"`
 	ExecutionTiming string `yaml:"execution_timing"`
 }
 type LogConfig struct {
