@@ -74,6 +74,12 @@ func (aManager *dataManager) flushUsersData() error {
 	// ロック
 	aManager.UsersMutex.Lock()
 	defer aManager.UsersMutex.Unlock()
+
+	// ユーザー情報がないなら何もしない
+	if len(aManager.Users) == 0 {
+		return nil
+	}
+
 	tUsers := map[string]*user{}
 
 	// ユーザーファイルがあるなら読み込み
@@ -100,5 +106,9 @@ func (aManager *dataManager) flushUsersData() error {
 	if tError := fdhandler.RenameUserFile(aManager.DataPathBase); tError != nil {
 		return fmt.Errorf("failed to rename users file: %w", tError)
 	}
+
+	// メモリのユーザー情報を初期化
+	aManager.Users = map[string]*user{}
+
 	return nil
 }

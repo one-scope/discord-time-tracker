@@ -70,18 +70,27 @@ func (aBot *Bot) setEventHandlers() {
 	})
 	// 誰かがサーバーに参加したとき。
 	aBot.onGuildMemberAdd(func(aSession *discordgo.Session, aEvent *discordgo.GuildMemberAdd) {
+		if aEvent.Member.User.Bot {
+			return
+		}
 		if tError := aBot.DataManager.updateUser(aEvent.Member, currentMember); tError != nil {
 			log.Println("failed to add user:", tError)
 		}
 	})
 	//誰かのロールが変わったとき。
 	aBot.onGuildMemberUpdate(func(aSession *discordgo.Session, aEvent *discordgo.GuildMemberUpdate) {
+		if aEvent.Member.User.Bot {
+			return
+		}
 		if tError := aBot.DataManager.updateUser(aEvent.Member, currentMember); tError != nil {
 			log.Println("failed to update user:", tError)
 		}
 	})
 	// 誰かがサーバーから退出したとき。
 	aBot.onGuildMemberRemove(func(aSession *discordgo.Session, aEvent *discordgo.GuildMemberRemove) {
+		if aEvent.Member.User.Bot {
+			return
+		}
 		if tError := aBot.DataManager.updateUser(aEvent.Member, oldMember); tError != nil {
 			log.Println("failed to remove user:", tError)
 		}
