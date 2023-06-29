@@ -17,6 +17,8 @@ const (
 	statusesFileName      = "statuses.json"
 )
 
+// 一旦全部utilにかく
+
 func CreateDataDirectory(aDataBasePath string) error {
 	if tError := os.MkdirAll(filepath.Join(aDataBasePath, usersDirectoryPath), 0777); tError != nil {
 		return tError

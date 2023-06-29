@@ -67,6 +67,10 @@ func (aManager *dataManager) flushData() func() {
 			log.Printf("failed to flush users data: %v", tError)
 			return
 		}
+		if tError := aManager.flushStatusesData(); tError != nil {
+			log.Printf("failed to flush statuses data: %v", tError)
+			return
+		}
 	}
 }
 
@@ -109,6 +113,19 @@ func (aManager *dataManager) flushUsersData() error {
 
 	// メモリのユーザー情報を初期化
 	aManager.Users = map[string]*user{}
+
+	return nil
+}
+
+func (aManager *dataManager) flushStatusesData() error {
+	// ロック
+	aManager.StatusesMutex.Lock()
+	defer aManager.StatusesMutex.Unlock()
+
+	// ステータス情報がないなら何もしない
+	if len(aManager.Statuses) == 0 {
+		return nil
+	}
 
 	return nil
 }
