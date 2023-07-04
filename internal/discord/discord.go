@@ -9,6 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/one-scope/discord-time-tracker/internal/config"
+	"github.com/one-scope/discord-time-tracker/internal/dbhandler"
 	"github.com/robfig/cron/v3"
 )
 
@@ -23,8 +24,8 @@ func New(aConfig *config.DiscordBotConfig) (*Bot, error) {
 		DataPathBase:  aConfig.DataPathBase,
 		UsersMutex:    sync.Mutex{},
 		StatusesMutex: sync.Mutex{},
-		Users:         map[string]*user{},
-		Statuses:      map[string][]*statuslog{},
+		UserByID:      map[string]*dbhandler.User{},
+		StatusByID:    map[string][]*statuslog{},
 	}
 	tBot := &Bot{
 		Session:         tSession,
@@ -59,70 +60,30 @@ func (aBot *Bot) Close() error {
 // エラー時に指定したチャンネルにエラーを送信し、続行。
 func (aBot *Bot) setEventHandlers() {
 	// ボットが起動したとき。
-	// 未実装：ボットが起動したときに、ユーザーの情報(ID,Name,Role等)を取得する。
-	aBot.onEvent(func(aSession *discordgo.Session, aEvent *discordgo.Event) {
-		var tMapRawData map[string]interface{}
-		json.Unmarshal(aEvent.RawData, &tMapRawData)
-
-		if aEvent.Type == "GUILD_CREATE" {
-			aBot.guildCreate(aSession, aEvent, tMapRawData)
-		}
-	})
+	aBot.onEvent(aBot.guildCreate)
 	// 誰かがサーバーに参加したとき。
-	aBot.onGuildMemberAdd(func(aSession *discordgo.Session, aEvent *discordgo.GuildMemberAdd) {
-		if aEvent.Member.User.Bot {
-			return
-		}
-		if tError := aBot.DataManager.updateUser(aEvent.Member, currentMember); tError != nil {
-			log.Println("failed to add user:", tError)
-		}
-	})
+	aBot.onGuildMemberAdd(aBot.guildMemberAdd)
 	//誰かのロールが変わったとき。
-	aBot.onGuildMemberUpdate(func(aSession *discordgo.Session, aEvent *discordgo.GuildMemberUpdate) {
-		if aEvent.Member.User.Bot {
-			return
-		}
-		if tError := aBot.DataManager.updateUser(aEvent.Member, currentMember); tError != nil {
-			log.Println("failed to update user:", tError)
-		}
-	})
+	aBot.onGuildMemberUpdate(aBot.guildMemberUpdate)
 	// 誰かがサーバーから退出したとき。
-	aBot.onGuildMemberRemove(func(aSession *discordgo.Session, aEvent *discordgo.GuildMemberRemove) {
-		if aEvent.Member.User.Bot {
-			return
-		}
-		if tError := aBot.DataManager.updateUser(aEvent.Member, oldMember); tError != nil {
-			log.Println("failed to remove user:", tError)
-		}
-	})
+	aBot.onGuildMemberRemove(aBot.guildMemberRemove)
 	//誰かのオンラインになったとき
-	aBot.onPresenceUpdate(func(aSession *discordgo.Session, aEvent *discordgo.PresenceUpdate) {
-		tVoiceState := &discordgo.VoiceState{
-			UserID:    aEvent.User.ID,
-			ChannelID: "",
-		}
-		tIsOnline := online
-		if aEvent.Presence.Status != discordgo.StatusOnline {
-			tIsOnline = offline
-		}
-
-		if tError := aBot.DataManager.updateStatus(tVoiceState, tIsOnline); tError != nil {
-			log.Println("failed to update status:", tError)
-		}
-	})
+	aBot.onPresenceUpdate(aBot.presenceUpdate)
 	// 誰かの音声通話が更新されたとき。// 接続、切断もこれ。切断時は ChannelID が空文字。
-	aBot.onVoiceStateUpdate(func(aSession *discordgo.Session, aEvent *discordgo.VoiceStateUpdate) {
-		if tError := aBot.DataManager.updateStatus(aEvent.VoiceState, unknownOnline); tError != nil {
-			log.Println("failed to update status:", tError)
-		}
-	})
+	aBot.onVoiceStateUpdate(aBot.voiceStateUpdate)
 }
 
 // 未実装：リファクタリング
 // ステータスだけじゃなくて、ユーザー情報も取得する。
-func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Event, aRawData map[string]interface{}) {
+func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Event) {
+	var tMapRawData map[string]interface{}
+	json.Unmarshal(aEvent.RawData, &tMapRawData)
+
+	if aEvent.Type != "GUILD_CREATE" {
+		return
+	}
 	//GuildIDを取得
-	tGuildID, tOk := aRawData["id"].(string)
+	tGuildID, tOk := tMapRawData["id"].(string)
 	if !tOk {
 		log.Println("failed to convert guild id")
 		return
@@ -138,14 +99,14 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 		if tMember.User.Bot {
 			continue
 		}
-		if tError := aBot.DataManager.updateUser(tMember, currentMember); tError != nil {
+		if tError := aBot.DataManager.updateUser(tMember, dbhandler.CurrentMember); tError != nil {
 			log.Println("failed to update user:", tError)
 		}
 	}
 
 	// これを実行中に onVoiceStateUpdate が起こると、死なないにしろ順序がおかしくなるかも。
 	//全員分の音声状況を取得。初期状態にする。
-	tInterfacePresences, tOk := aRawData["presences"].([]interface{})
+	tInterfacePresences, tOk := tMapRawData["presences"].([]interface{})
 	if !tOk {
 		log.Println("failed to convert presences")
 		return
@@ -195,5 +156,48 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 		if tError := aBot.DataManager.updateStatus(tVoiceState, online); tError != nil {
 			log.Println("failed to update status:", tError)
 		}
+	}
+}
+func (aBot *Bot) guildMemberAdd(aSession *discordgo.Session, aEvent *discordgo.GuildMemberAdd) {
+	if aEvent.Member.User.Bot {
+		return
+	}
+	if tError := aBot.DataManager.updateUser(aEvent.Member, dbhandler.CurrentMember); tError != nil {
+		log.Println("failed to add user:", tError)
+	}
+}
+func (aBot *Bot) guildMemberUpdate(aSession *discordgo.Session, aEvent *discordgo.GuildMemberUpdate) {
+	if aEvent.Member.User.Bot {
+		return
+	}
+	if tError := aBot.DataManager.updateUser(aEvent.Member, dbhandler.CurrentMember); tError != nil {
+		log.Println("failed to update user:", tError)
+	}
+}
+func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordgo.GuildMemberRemove) {
+	if aEvent.Member.User.Bot {
+		return
+	}
+	if tError := aBot.DataManager.updateUser(aEvent.Member, dbhandler.OldMember); tError != nil {
+		log.Println("failed to remove user:", tError)
+	}
+}
+func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.PresenceUpdate) {
+	tVoiceState := &discordgo.VoiceState{
+		UserID:    aEvent.User.ID,
+		ChannelID: "",
+	}
+	tIsOnline := online
+	if aEvent.Presence.Status != discordgo.StatusOnline {
+		tIsOnline = offline
+	}
+
+	if tError := aBot.DataManager.updateStatus(tVoiceState, tIsOnline); tError != nil {
+		log.Println("failed to update status:", tError)
+	}
+}
+func (aBot *Bot) voiceStateUpdate(aSession *discordgo.Session, aEvent *discordgo.VoiceStateUpdate) {
+	if tError := aBot.DataManager.updateStatus(aEvent.VoiceState, unknownOnline); tError != nil {
+		log.Println("failed to update status:", tError)
 	}
 }

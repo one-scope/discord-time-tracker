@@ -22,10 +22,14 @@ func New(aConfigPath string) (*App, error) {
 	if tError != nil {
 		return nil, tError
 	}
+	defer func() {
+		if tError := tFile.Close(); tError != nil {
+			log.Println(tError)
+		}
+	}()
 	if tError := yaml.NewDecoder(tFile).Decode(&tConfig); tError != nil {
 		return nil, tError
 	}
-	tFile.Close()
 
 	// App初期化
 	tApp := &App{}
@@ -37,7 +41,7 @@ func New(aConfigPath string) (*App, error) {
 	}
 
 	// ログファイル初期化
-	tApp.LogFile, tError = LogSettings(tConfig.Log.FilePath)
+	tApp.LogFile, tError = logSettings(tConfig.Log.FilePath)
 	if tError != nil {
 		return nil, tError
 	}
@@ -45,7 +49,7 @@ func New(aConfigPath string) (*App, error) {
 	return tApp, nil
 }
 
-func LogSettings(aFilePath string) (*os.File, error) {
+func logSettings(aFilePath string) (*os.File, error) {
 	tFile, tError := os.OpenFile(aFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if tError != nil {
 		return nil, tError
@@ -55,4 +59,11 @@ func LogSettings(aFilePath string) (*os.File, error) {
 	log.SetOutput(tMultiLogFile)
 
 	return tFile, nil
+}
+
+func (aApp *App) Close() error {
+	var tError error
+	tError = aApp.DiscordBot.Close()
+	tError = aApp.LogFile.Close()
+	return tError
 }

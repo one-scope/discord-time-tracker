@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	fdhandler "github.com/one-scope/discord-time-tracker/internal/filedirectoryhandler"
+	"github.com/one-scope/discord-time-tracker/internal/dbhandler"
 )
 
 // DataMangager(メモリ)にUser情報を一時保存
-func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember IsMember) error {
+func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember dbhandler.IsMember) error {
 	aManager.UsersMutex.Lock()
 	defer aManager.UsersMutex.Unlock()
-	aManager.Users[aMember.User.ID] = &user{
+	aManager.UserByID[aMember.User.ID] = &dbhandler.User{
 		UserID:   aMember.User.ID,
 		UserName: aMember.User.Username,
 		IsMember: aIsMember,
@@ -34,7 +34,7 @@ func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOn
 		VoiceState:   statusMap(aVoiceState),
 		OnlineStatus: aOnline,
 	}
-	aManager.Statuses[aVoiceState.UserID] = append(aManager.Statuses[aVoiceState.UserID], tStatus)
+	aManager.StatusByID[aVoiceState.UserID] = append(aManager.StatusByID[aVoiceState.UserID], tStatus)
 
 	return nil
 }
@@ -75,44 +75,41 @@ func (aManager *dataManager) flushUsersData() error {
 	defer aManager.UsersMutex.Unlock()
 
 	// ユーザー情報がないなら何もしない
-	if len(aManager.Users) == 0 {
+	if len(aManager.UserByID) == 0 {
 		return nil
 	}
 
 	// ユーザーディレクトリがないなら作成
-	if tError := fdhandler.CreateUsersDataDirectory(aManager.DataPathBase); tError != nil {
+	if tError := dbhandler.CreateUsersDataDirectory(aManager.DataPathBase); tError != nil {
 		return fmt.Errorf("failed to create users directory: %w", tError)
 	}
 
-	tUsers := map[string]*user{}
+	tUsers := map[string]*dbhandler.User{}
 
 	// ユーザーファイルがあるなら読み込み
-	if fdhandler.IsExistsUsersJsonFile(aManager.DataPathBase) {
-		if tError := fdhandler.DecodeUsersJsonFile(aManager.DataPathBase, &tUsers); tError != nil {
+	if dbhandler.IsExistsUsersJsonFile(aManager.DataPathBase) {
+		if tError := dbhandler.DecodeUsersJsonFile(aManager.DataPathBase, &tUsers); tError != nil {
 			return fmt.Errorf("failed to decode users file: %w", tError)
 		}
 	}
-	if tUsers == nil { //Decodeでファイルが空だとnilにされるため
-		tUsers = map[string]*user{}
-	}
 
 	// メモリのユーザー情報をファイルのユーザー情報に上書き
-	for _, tUser := range aManager.Users {
+	for _, tUser := range aManager.UserByID {
 		tUsers[tUser.UserID] = tUser
 	}
 
 	// メモリのユーザー情報をファイルに書き込み
-	if tError := fdhandler.EncodeUsersJsonFile(aManager.DataPathBase, tUsers); tError != nil {
+	if tError := dbhandler.EncodeUsersJsonFile(aManager.DataPathBase, &tUsers); tError != nil {
 		return fmt.Errorf("failed to encode users file: %w", tError)
 	}
 
 	// 古いファイルを新規ユーザーファイルに置き換え
-	if tError := fdhandler.RenameUsersJsonFile(aManager.DataPathBase); tError != nil {
+	if tError := dbhandler.RenameUsersJsonFile(aManager.DataPathBase); tError != nil {
 		return fmt.Errorf("failed to rename users file: %w", tError)
 	}
 
 	// メモリのユーザー情報を初期化
-	aManager.Users = map[string]*user{}
+	aManager.UserByID = map[string]*dbhandler.User{}
 
 	return nil
 }
@@ -123,7 +120,7 @@ func (aManager *dataManager) flushStatusesData() error {
 	defer aManager.StatusesMutex.Unlock()
 
 	// ステータス情報がないなら何もしない
-	if len(aManager.Statuses) == 0 {
+	if len(aManager.StatusByID) == 0 {
 		return nil
 	}
 

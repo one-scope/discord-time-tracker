@@ -79,7 +79,7 @@ discord > datamanager.go：リスナーのデータをメモリに保存、フ�
 
 discord > model.go：Botやファイル出力する際の構造体、Botのリスナー登録用の関数を定義
 
-filedirectoryhandler：メモリのデータをファイルに出力するための関数
+dbhandler：メモリのデータをファイルに出力するための関数
 
 config：config.ymlファイルのデータから受け取るための構造体
 
