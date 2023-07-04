@@ -7,7 +7,7 @@ https://github.com/orgs/one-scope/discussions/4
 
 config.yml 
 
-discord_bot_token意外は変更する必要なし
+discord_bot_token以外は変更する必要なし
 ```
 discordbot:
   discord_bot_token: {DiscordBotトークン} #現在はAdministratorの権限を持ったdiscordbotのトークン
@@ -15,12 +15,12 @@ discordbot:
   execution_timing: "* * * * *" # cron 形式のファイルに出力する頻度
 
 log:
-  file_path: /var/log/log.txt #ログの出力先ディレクトリ. docker-composeでvolumeしている
+  file_path: /var/log/log.txt #ログの出力先ディレクトリ. docker-compose.ymlでvolumeしている
 ```
 
 起動
 ```
-docker-compose up -d 
+docker compose up -d 
 ```
 
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/one-scope/discord-time-tracker/internal/config"
 	"github.com/one-scope/discord-time-tracker/internal/discord"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type App struct {
