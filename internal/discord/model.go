@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/one-scope/discord-time-tracker/internal/dbhandler"
+	"github.com/one-scope/discord-time-tracker/internal/db"
 	"github.com/robfig/cron/v3"
 )
 
@@ -18,8 +18,9 @@ const (
 
 type dataManager struct {
 	DataPathBase string
-	UserByID     map[string]*dbhandler.User // key: UserID
-	StatusByID   map[string][]*statuslog    // key: UserID
+	UserByID     map[string]*db.User     // key: UserID
+	StatusByID   map[string][]*statuslog // key: UserID
+	DB           *db.SQLiteDB
 }
 
 // メモリ上のステータス構造体

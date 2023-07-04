@@ -5,3 +5,6 @@ discordbot:
 
 log:
   file_path: /var/log/log.txt
+
+db:
+  db_path: /var/lib/db/main.db

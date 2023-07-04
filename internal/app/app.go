@@ -1,11 +1,14 @@
 package app
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/one-scope/discord-time-tracker/internal/config"
+	"github.com/one-scope/discord-time-tracker/internal/db"
 	"github.com/one-scope/discord-time-tracker/internal/discord"
 	"gopkg.in/yaml.v3"
 )
@@ -34,14 +37,20 @@ func New(aConfigPath string) (*App, error) {
 	// App初期化
 	tApp := &App{}
 
-	// DiscordBot初期化
-	tApp.DiscordBot, tError = discord.New(&tConfig.DiscordBot)
+	// ログファイル初期化
+	tApp.LogFile, tError = logSettings(tConfig.Log.FilePath)
 	if tError != nil {
 		return nil, tError
 	}
 
-	// ログファイル初期化
-	tApp.LogFile, tError = logSettings(tConfig.Log.FilePath)
+	// データベース初期化
+	tDB, tError := db.New(tConfig.DB.Path)
+	if tError != nil {
+		return nil, tError
+	}
+
+	// DiscordBot初期化
+	tApp.DiscordBot, tError = discord.New(&tConfig.DiscordBot, tDB)
 	if tError != nil {
 		return nil, tError
 	}
@@ -62,8 +71,15 @@ func logSettings(aFilePath string) (*os.File, error) {
 }
 
 func (aApp *App) Close() error {
-	var tError error
-	tError = aApp.DiscordBot.Close()
-	tError = aApp.LogFile.Close()
-	return tError
+	var tReturnError error
+	if tError := aApp.DiscordBot.Close(); tError != nil {
+		tReturnError = fmt.Errorf("DiscordBot close error: %w", tError)
+	}
+	if tError := aApp.LogFile.Close(); tError != nil {
+		tReturnError = fmt.Errorf("LogFile close error: %w: %w", tError, tReturnError)
+	}
+	if tError := aApp.DiscordBot.DataManager.DB.Close(); tError != nil {
+		tReturnError = fmt.Errorf("DB close error: %w: %w", tError, tReturnError)
+	}
+	return tReturnError
 }

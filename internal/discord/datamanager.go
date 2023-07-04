@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/one-scope/discord-time-tracker/internal/dbhandler"
+	"github.com/one-scope/discord-time-tracker/internal/db"
 )
 
 // DataMangager(メモリ)にUser情報を一時保存
-func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember dbhandler.IsMember) error {
-	aManager.UserByID[aMember.User.ID] = &dbhandler.User{
-		UserID:   aMember.User.ID,
-		UserName: aMember.User.Username,
+func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember db.IsMember) error {
+	aManager.UserByID[aMember.User.ID] = &db.User{
+		ID:       aMember.User.ID,
+		Name:     aMember.User.Username,
 		IsMember: aIsMember,
 		Roles:    aMember.Roles,
 	}
@@ -70,37 +70,25 @@ func (aManager *dataManager) flushUsersData() error {
 		return nil
 	}
 
-	// ユーザーディレクトリがないなら作成
-	if tError := dbhandler.CreateUsersDataDirectory(aManager.DataPathBase); tError != nil {
-		return fmt.Errorf("failed to create users directory: %w", tError)
-	}
-
-	tUsers := map[string]*dbhandler.User{}
-
-	// ユーザーファイルがあるなら読み込み
-	if dbhandler.IsExistsUsersJsonFile(aManager.DataPathBase) {
-		if tError := dbhandler.DecodeUsersJsonFile(aManager.DataPathBase, &tUsers); tError != nil {
-			return fmt.Errorf("failed to decode users file: %w", tError)
+	// ユーザー情報をDBに保存
+	for _, tUser := range aManager.UserByID {
+		tIsExists, tError := aManager.DB.IsExistsUserByID(tUser.ID)
+		if tError != nil {
+			return fmt.Errorf("failed to check user exists: %w", tError)
+		}
+		if tIsExists {
+			if tError := aManager.DB.UpdateUser(tUser.ID, tUser.Name, tUser.IsMember); tError != nil {
+				return fmt.Errorf("failed to update user: %w", tError)
+			}
+		} else {
+			if tError := aManager.DB.InsertUser(tUser.ID, tUser.Name, tUser.IsMember); tError != nil {
+				return fmt.Errorf("failed to add user: %w", tError)
+			}
 		}
 	}
 
-	// メモリのユーザー情報をファイルのユーザー情報に上書き
-	for _, tUser := range aManager.UserByID {
-		tUsers[tUser.UserID] = tUser
-	}
-
-	// メモリのユーザー情報をファイルに書き込み
-	if tError := dbhandler.EncodeUsersJsonFile(aManager.DataPathBase, &tUsers); tError != nil {
-		return fmt.Errorf("failed to encode users file: %w", tError)
-	}
-
-	// 古いファイルを新規ユーザーファイルに置き換え
-	if tError := dbhandler.RenameUsersJsonFile(aManager.DataPathBase); tError != nil {
-		return fmt.Errorf("failed to rename users file: %w", tError)
-	}
-
 	// メモリのユーザー情報を初期化
-	aManager.UserByID = map[string]*dbhandler.User{}
+	aManager.UserByID = map[string]*db.User{}
 
 	return nil
 }

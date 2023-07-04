@@ -3,6 +3,7 @@ package config
 type Config struct {
 	DiscordBot DiscordBotConfig `yaml:"discordbot"`
 	Log        LogConfig        `yaml:"log"`
+	DB         DBConfig         `yaml:"db"`
 }
 
 type DiscordBotConfig struct {
@@ -12,4 +13,8 @@ type DiscordBotConfig struct {
 }
 type LogConfig struct {
 	FilePath string `yaml:"file_path"`
+}
+
+type DBConfig struct {
+	Path string `yaml:"db_path"`
 }

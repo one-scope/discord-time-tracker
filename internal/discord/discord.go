@@ -8,11 +8,11 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/one-scope/discord-time-tracker/internal/config"
-	"github.com/one-scope/discord-time-tracker/internal/dbhandler"
+	"github.com/one-scope/discord-time-tracker/internal/db"
 	"github.com/robfig/cron/v3"
 )
 
-func New(aConfig *config.DiscordBotConfig) (*Bot, error) {
+func New(aConfig *config.DiscordBotConfig, aDB *db.SQLiteDB) (*Bot, error) {
 	tSession, tError := discordgo.New("Bot " + aConfig.DiscordBotToken)
 	if tError != nil {
 		return nil, tError
@@ -21,8 +21,9 @@ func New(aConfig *config.DiscordBotConfig) (*Bot, error) {
 	tCron := cron.New()
 	tManager := &dataManager{
 		DataPathBase: aConfig.DataPathBase,
-		UserByID:     map[string]*dbhandler.User{},
+		UserByID:     map[string]*db.User{},
 		StatusByID:   map[string][]*statuslog{},
+		DB:           aDB,
 	}
 	tBot := &Bot{
 		Session:         tSession,
@@ -96,7 +97,7 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 		if tMember.User.Bot {
 			continue
 		}
-		if tError := aBot.DataManager.updateUser(tMember, dbhandler.CurrentMember); tError != nil {
+		if tError := aBot.DataManager.updateUser(tMember, db.CurrentMember); tError != nil {
 			log.Println("failed to update user:", tError)
 		}
 	}
@@ -159,7 +160,7 @@ func (aBot *Bot) guildMemberAdd(aSession *discordgo.Session, aEvent *discordgo.G
 	if aEvent.Member.User.Bot {
 		return
 	}
-	if tError := aBot.DataManager.updateUser(aEvent.Member, dbhandler.CurrentMember); tError != nil {
+	if tError := aBot.DataManager.updateUser(aEvent.Member, db.CurrentMember); tError != nil {
 		log.Println("failed to add user:", tError)
 	}
 }
@@ -167,7 +168,7 @@ func (aBot *Bot) guildMemberUpdate(aSession *discordgo.Session, aEvent *discordg
 	if aEvent.Member.User.Bot {
 		return
 	}
-	if tError := aBot.DataManager.updateUser(aEvent.Member, dbhandler.CurrentMember); tError != nil {
+	if tError := aBot.DataManager.updateUser(aEvent.Member, db.CurrentMember); tError != nil {
 		log.Println("failed to update user:", tError)
 	}
 }
@@ -175,7 +176,7 @@ func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordg
 	if aEvent.Member.User.Bot {
 		return
 	}
-	if tError := aBot.DataManager.updateUser(aEvent.Member, dbhandler.OldMember); tError != nil {
+	if tError := aBot.DataManager.updateUser(aEvent.Member, db.OldMember); tError != nil {
 		log.Println("failed to remove user:", tError)
 	}
 }
