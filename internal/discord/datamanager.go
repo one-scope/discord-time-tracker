@@ -58,11 +58,6 @@ func statusMap(aVoiceState *discordgo.VoiceState) string {
 func (aManager *dataManager) flushData() func() {
 	return func() {
 		log.Println("save data")
-		// データディレクトリ作成
-		if tError := fdhandler.CreateDataDirectory(aManager.DataPathBase); tError != nil {
-			log.Printf("failed to create base data directory: %v", tError)
-			return
-		}
 		if tError := aManager.flushUsersData(); tError != nil {
 			log.Printf("failed to flush users data: %v", tError)
 			return
@@ -84,15 +79,20 @@ func (aManager *dataManager) flushUsersData() error {
 		return nil
 	}
 
+	// ユーザーディレクトリがないなら作成
+	if tError := fdhandler.CreateUsersDataDirectory(aManager.DataPathBase); tError != nil {
+		return fmt.Errorf("failed to create users directory: %w", tError)
+	}
+
 	tUsers := map[string]*user{}
 
 	// ユーザーファイルがあるなら読み込み
-	if fdhandler.IsExistsUsersFile(aManager.DataPathBase) {
-		if tError := fdhandler.DecodeUsersFile(aManager.DataPathBase, &tUsers); tError != nil {
+	if fdhandler.IsExistsUsersJsonFile(aManager.DataPathBase) {
+		if tError := fdhandler.DecodeUsersJsonFile(aManager.DataPathBase, &tUsers); tError != nil {
 			return fmt.Errorf("failed to decode users file: %w", tError)
 		}
 	}
-	if tUsers == nil { //Decodeでnilにされることがあるため
+	if tUsers == nil { //Decodeでファイルが空だとnilにされるため
 		tUsers = map[string]*user{}
 	}
 
@@ -102,12 +102,12 @@ func (aManager *dataManager) flushUsersData() error {
 	}
 
 	// メモリのユーザー情報をファイルに書き込み
-	if tError := fdhandler.EncodeUsersFile(aManager.DataPathBase, tUsers); tError != nil {
+	if tError := fdhandler.EncodeUsersJsonFile(aManager.DataPathBase, tUsers); tError != nil {
 		return fmt.Errorf("failed to encode users file: %w", tError)
 	}
 
 	// 古いファイルを新規ユーザーファイルに置き換え
-	if tError := fdhandler.RenameUserFile(aManager.DataPathBase); tError != nil {
+	if tError := fdhandler.RenameUsersJsonFile(aManager.DataPathBase); tError != nil {
 		return fmt.Errorf("failed to rename users file: %w", tError)
 	}
 
