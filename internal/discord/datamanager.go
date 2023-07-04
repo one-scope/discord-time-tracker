@@ -48,9 +48,8 @@ func statusMap(aVoiceState *discordgo.VoiceState) string {
 }
 
 // 未実装：ステータス情報を保存するとき、User情報があるか確認してなかったらとりにいく。
-// 未実装：User情報は変化がない時もあるだろうから変更があったか判定した方がよさそう
 // 未実装：失敗した場合、リトライする
-// 未実装：バックアップも定期的に作りたいなー
+// 未実装：バックアップも定期的に作りたい
 func (aManager *dataManager) flushData() func() {
 	return func() {
 		log.Println("save data")

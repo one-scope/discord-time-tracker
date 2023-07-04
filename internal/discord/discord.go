@@ -54,7 +54,7 @@ func (aBot *Bot) Close() error {
 	return aBot.Session.Close()
 }
 
-// エラー時に指定したチャンネルにエラーを送信し、続行。
+// 未実装：エラー時に指定したチャンネルにエラーを送信し、続行。
 func (aBot *Bot) setEventHandlers() {
 	// ボットが起動したとき。
 	aBot.onEvent(aBot.guildCreate)
