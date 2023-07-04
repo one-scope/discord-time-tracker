@@ -11,8 +11,6 @@ import (
 
 // DataMangager(メモリ)にUser情報を一時保存
 func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember dbhandler.IsMember) error {
-	aManager.UsersMutex.Lock()
-	defer aManager.UsersMutex.Unlock()
 	aManager.UserByID[aMember.User.ID] = &dbhandler.User{
 		UserID:   aMember.User.ID,
 		UserName: aMember.User.Username,
@@ -25,8 +23,6 @@ func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember dbh
 // DataMangager(メモリ)にステータス情報を一時保存
 func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOnline OnlineStatus) error {
 	tNow := time.Now()
-	aManager.StatusesMutex.Lock()
-	defer aManager.StatusesMutex.Unlock()
 	tStatus := &statuslog{
 		UserID:       aVoiceState.UserID,
 		ChannelID:    aVoiceState.ChannelID,
@@ -70,10 +66,6 @@ func (aManager *dataManager) flushData() func() {
 }
 
 func (aManager *dataManager) flushUsersData() error {
-	// ロック
-	aManager.UsersMutex.Lock()
-	defer aManager.UsersMutex.Unlock()
-
 	// ユーザー情報がないなら何もしない
 	if len(aManager.UserByID) == 0 {
 		return nil
@@ -115,10 +107,6 @@ func (aManager *dataManager) flushUsersData() error {
 }
 
 func (aManager *dataManager) flushStatusesData() error {
-	// ロック
-	aManager.StatusesMutex.Lock()
-	defer aManager.StatusesMutex.Unlock()
-
 	// ステータス情報がないなら何もしない
 	if len(aManager.StatusByID) == 0 {
 		return nil

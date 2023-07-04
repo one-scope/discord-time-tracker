@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/one-scope/discord-time-tracker/internal/config"
@@ -21,11 +20,9 @@ func New(aConfig *config.DiscordBotConfig) (*Bot, error) {
 	tSession.Identify.Intents = discordgo.IntentsAll // 現在、テストのため全て許可
 	tCron := cron.New()
 	tManager := &dataManager{
-		DataPathBase:  aConfig.DataPathBase,
-		UsersMutex:    sync.Mutex{},
-		StatusesMutex: sync.Mutex{},
-		UserByID:      map[string]*dbhandler.User{},
-		StatusByID:    map[string][]*statuslog{},
+		DataPathBase: aConfig.DataPathBase,
+		UserByID:     map[string]*dbhandler.User{},
+		StatusByID:   map[string][]*statuslog{},
 	}
 	tBot := &Bot{
 		Session:         tSession,

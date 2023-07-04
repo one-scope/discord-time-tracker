@@ -1,7 +1,6 @@
 package discord
 
 import (
-	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -18,11 +17,9 @@ const (
 )
 
 type dataManager struct {
-	DataPathBase  string
-	UsersMutex    sync.Mutex
-	StatusesMutex sync.Mutex
-	UserByID      map[string]*dbhandler.User // key: UserID
-	StatusByID    map[string][]*statuslog    // key: UserID
+	DataPathBase string
+	UserByID     map[string]*dbhandler.User // key: UserID
+	StatusByID   map[string][]*statuslog    // key: UserID
 }
 
 // メモリ上のステータス構造体
