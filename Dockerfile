@@ -28,18 +28,8 @@ RUN set -x \
     && ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime \
     && echo 'Asia/Tokyo' > /etc/timezone
 
-# sqlite3
-RUN set -x \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends git sqlite3 gcc \
-    && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
-
 COPY --from=server /workdir/server /server
 COPY ./config.yml /config.yml
-
-VOLUME [ "/data" ]
-
-EXPOSE 8080
 
 ENTRYPOINT [ "/server" ]
 CMD [ "-c", "/config.yml" ]

@@ -1,14 +1,38 @@
-version: '3'
+version: '3.8'
 
 services:
   discord-time-tracker:
     build:
       context: .
       dockerfile: Dockerfile
-    # restart: always
+    restart: always
+    depends_on:
+      - postgres
     ports:
       - 8033:8080
     volumes:
-      - ./data:/var/lib:rw
-      - ./log:/var/log:rw
-    network_mode: bridge
+      - ./log:/var/log
+    networks:
+      - net
+  postgres:
+    container_name: postgres
+    image: postgres:15.3
+    # restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: db
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - net
+
+networks:
+  net:
+    driver: bridge
+
+volumes:
+  postgres-data:

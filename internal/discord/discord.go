@@ -12,7 +12,7 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-func New(aConfig *config.DiscordBotConfig, aDB *db.SQLiteDB) (*Bot, error) {
+func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	tSession, tError := discordgo.New("Bot " + aConfig.DiscordBotToken)
 	if tError != nil {
 		return nil, tError
@@ -20,10 +20,9 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.SQLiteDB) (*Bot, error) {
 	tSession.Identify.Intents = discordgo.IntentsAll // 現在、テストのため全て許可
 	tCron := cron.New()
 	tManager := &dataManager{
-		DataPathBase: aConfig.DataPathBase,
-		UserByID:     map[string]*db.User{},
-		StatusByID:   map[string][]*statuslog{},
-		DB:           aDB,
+		UserByID:   map[string]*db.User{},
+		StatusByID: map[string][]*statuslog{},
+		DB:         aDB,
 	}
 	tBot := &Bot{
 		Session:         tSession,

@@ -17,10 +17,9 @@ const (
 )
 
 type dataManager struct {
-	DataPathBase string
-	UserByID     map[string]*db.User     // key: UserID
-	StatusByID   map[string][]*statuslog // key: UserID
-	DB           *db.SQLiteDB
+	UserByID   map[string]*db.User     // key: UserID
+	StatusByID map[string][]*statuslog // key: UserID
+	DB         *db.PostgresDB
 }
 
 // メモリ上のステータス構造体

@@ -47,9 +47,7 @@ func statusMap(aVoiceState *discordgo.VoiceState) string {
 	return "mic-on"
 }
 
-// 未実装：ステータス情報を保存するとき、User情報があるか確認してなかったらとりにいく。
 // 未実装：失敗した場合、リトライする
-// 未実装：バックアップも定期的に作りたい
 func (aManager *dataManager) flushData() func() {
 	return func() {
 		log.Println("save data")
@@ -61,11 +59,31 @@ func (aManager *dataManager) flushData() func() {
 			log.Printf("failed to flush statuses data: %v", tError)
 			return
 		}
+
+		log.Println("全てのDBにあるユーザー情報")
+		tUsers, tError := aManager.DB.GetAllUsers()
+		if tError != nil {
+			log.Printf("failed to get all users: %v", tError)
+			return
+		}
+		for _, tUser := range tUsers {
+			log.Println(tUser)
+			// ロール情報を取得
+			tRoles, tError := aManager.DB.GetAllRolesByUserID(tUser.ID)
+			if tError != nil {
+				log.Printf("failed to get all roles: %v", tError)
+				return
+			}
+			for _, tRole := range tRoles {
+				log.Println(tRole)
+			}
+		}
 	}
 }
 
+// 未実装：ユーザーを登録して、メモリリセットするまでの間に、更新があるかもしれない。あるなら処理もしくはロックが必要
 func (aManager *dataManager) flushUsersData() error {
-	// ユーザー情報がないなら何もしない
+	// ユーザー情報の更新がないなら何もしない
 	if len(aManager.UserByID) == 0 {
 		return nil
 	}
@@ -77,12 +95,38 @@ func (aManager *dataManager) flushUsersData() error {
 			return fmt.Errorf("failed to check user exists: %w", tError)
 		}
 		if tIsExists {
-			if tError := aManager.DB.UpdateUser(tUser.ID, tUser.Name, tUser.IsMember); tError != nil {
+			if tError := aManager.DB.UpdateUser(tUser); tError != nil {
 				return fmt.Errorf("failed to update user: %w", tError)
 			}
 		} else {
-			if tError := aManager.DB.InsertUser(tUser.ID, tUser.Name, tUser.IsMember); tError != nil {
+			if tError := aManager.DB.InsertUser(tUser); tError != nil {
 				return fmt.Errorf("failed to add user: %w", tError)
+			}
+		}
+	}
+
+	// ロール情報をDBに保存
+	for _, tUser := range aManager.UserByID {
+		tRolesMap, tError := aManager.DB.GetRolesIDMapByUserID(tUser.ID)
+		if tError != nil {
+			return fmt.Errorf("failed to get roles: %w", tError)
+		}
+		for _, tRole := range tUser.Roles {
+			tIsExists, tError := aManager.DB.IsExistsRoleByUserID(tUser.ID, tRole)
+			if tError != nil {
+				return fmt.Errorf("failed to check role exists: %w", tError)
+			}
+			if !tIsExists {
+				if tError := aManager.DB.InsertRoleByUserID(tUser.ID, tRole); tError != nil {
+					return fmt.Errorf("failed to add role: %w", tError)
+				}
+			} else {
+				delete(tRolesMap, tRole)
+			}
+		}
+		for tRole := range tRolesMap {
+			if tError := aManager.DB.DeleteRoleByUserID(tUser.ID, tRole); tError != nil {
+				return fmt.Errorf("failed to delete role: %w", tError)
 			}
 		}
 	}
@@ -93,6 +137,7 @@ func (aManager *dataManager) flushUsersData() error {
 	return nil
 }
 
+// 未実装：ステータス情報を保存するとき、User情報があるか確認してなかったらとりにいく。
 func (aManager *dataManager) flushStatusesData() error {
 	// ステータス情報がないなら何もしない
 	if len(aManager.StatusByID) == 0 {

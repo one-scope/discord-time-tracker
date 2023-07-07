@@ -1,10 +1,6 @@
 discordbot:
   discord_bot_token: {DiscordBotトークン}
-  data_dir: /var/lib
   execution_timing: "* * * * *"
 
 log:
   file_path: /var/log/log.txt
-
-db:
-  db_path: /var/lib/db/main.db

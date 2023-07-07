@@ -44,9 +44,9 @@ func New(aConfigPath string) (*App, error) {
 	}
 
 	// データベース初期化
-	tDB, tError := db.New(tConfig.DB.Path)
+	tDB, tError := db.New()
 	if tError != nil {
-		return nil, tError
+		return nil, fmt.Errorf("DB init error: %w", tError)
 	}
 
 	// DiscordBot初期化

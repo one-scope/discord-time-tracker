@@ -1,4 +1,4 @@
 /data
-config.yml
+/config.yml
 /log
-.devcontainer
+/.devcontainer
