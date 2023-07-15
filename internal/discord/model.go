@@ -1,34 +1,15 @@
 package discord
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/one-scope/discord-time-tracker/internal/db"
 	"github.com/robfig/cron/v3"
 )
 
-type OnlineStatus string
-
-const (
-	online        OnlineStatus = "online"
-	offline       OnlineStatus = "offline"
-	unknownOnline OnlineStatus = "unknown"
-)
-
 type dataManager struct {
-	UserByID   map[string]*db.User     // key: UserID
-	StatusByID map[string][]*statuslog // key: UserID
-	DB         *db.PostgresDB
-}
-
-// メモリ上のステータス構造体
-type statuslog struct {
-	UserID       string // キーがあるからいらないかも
-	Timestamp    time.Time
-	ChannelID    string
-	VoiceState   string
-	OnlineStatus OnlineStatus
+	UsersByID    map[string]*db.User        // key: UserID
+	StatusesByID map[string][]*db.Statuslog // key: UserID
+	DB           *db.PostgresDB
 }
 
 type Bot struct {

@@ -20,9 +20,9 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	tSession.Identify.Intents = discordgo.IntentsAll // 現在、テストのため全て許可
 	tCron := cron.New()
 	tManager := &dataManager{
-		UserByID:   map[string]*db.User{},
-		StatusByID: map[string][]*statuslog{},
-		DB:         aDB,
+		UsersByID:    map[string]*db.User{},
+		StatusesByID: map[string][]*db.Statuslog{},
+		DB:           aDB,
 	}
 	tBot := &Bot{
 		Session:         tSession,
@@ -150,7 +150,7 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 			continue
 		}
 
-		if tError := aBot.DataManager.updateStatus(tVoiceState, online); tError != nil {
+		if tError := aBot.DataManager.updateStatus(tVoiceState, db.Online); tError != nil {
 			log.Println("failed to update status:", tError)
 		}
 	}
@@ -184,9 +184,9 @@ func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.P
 		UserID:    aEvent.User.ID,
 		ChannelID: "",
 	}
-	tIsOnline := online
+	tIsOnline := db.Online
 	if aEvent.Presence.Status != discordgo.StatusOnline {
-		tIsOnline = offline
+		tIsOnline = db.Offline
 	}
 
 	if tError := aBot.DataManager.updateStatus(tVoiceState, tIsOnline); tError != nil {
@@ -194,7 +194,7 @@ func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.P
 	}
 }
 func (aBot *Bot) voiceStateUpdate(aSession *discordgo.Session, aEvent *discordgo.VoiceStateUpdate) {
-	if tError := aBot.DataManager.updateStatus(aEvent.VoiceState, unknownOnline); tError != nil {
+	if tError := aBot.DataManager.updateStatus(aEvent.VoiceState, db.UnknownOnline); tError != nil {
 		log.Println("failed to update status:", tError)
 	}
 }

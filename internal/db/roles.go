@@ -7,7 +7,7 @@ import (
 )
 
 // ユーザーIDを使ってmap[string]stringでロールを全て取得
-func (aDB *PostgresDB) GetRolesIDMapByUserID(aUserID string) (map[string]string, error) {
+func (aDB *PostgresDB) GetAllRolesIDMapByUserID(aUserID string) (map[string]string, error) {
 	tQuery := fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1", rolesTableID, rolesTable, usersTableID)
 	tRows, tError := aDB.DB.Query(tQuery, aUserID)
 	if tError != nil {
@@ -55,7 +55,7 @@ func (aDB *PostgresDB) DeleteRoleByUserID(aUserID string, aRoleID string) error 
 }
 
 // ユーザーIDを使ってロールを全て取得
-func (aDB *PostgresDB) GetAllRolesByUserID(aUserID string) ([]string, error) {
+func (aDB *PostgresDB) GetAllRolesIDByUserID(aUserID string) ([]string, error) {
 	tQuery := fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1", rolesTableID, rolesTable, usersTableID)
 	tRows, tError := aDB.DB.Query(tQuery, aUserID)
 	if tError != nil {

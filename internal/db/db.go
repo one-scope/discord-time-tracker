@@ -17,9 +17,7 @@ func New() (*PostgresDB, error) {
 		return nil, tError
 	}
 
-	tPostgresDB := &PostgresDB{tDb}
-
-	return tPostgresDB, nil
+	return &PostgresDB{tDb}, nil
 }
 
 func (aDB *PostgresDB) Close() error {
