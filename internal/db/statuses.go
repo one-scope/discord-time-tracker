@@ -12,8 +12,8 @@ func (aDB *PostgresDB) CreateStatusesTable() error {
 
 // ステータス新規登録
 func (aDB *PostgresDB) InsertStatus(aStatus *Statuslog) error {
-	tQuery := fmt.Sprintf("INSERT INTO %s (%s,%s,%s,%s,%s) VALUES (:discord_id,:time_stamp,:channel_id,:voice_state,:online_status)",
+	tQuery := fmt.Sprintf("INSERT INTO %s (%s,%s,%s,%s,%s) VALUES ($1,$2,$3,$4,$5)",
 		statusesTable, usersTableID, statusesTableTimestamp, statusesTableChannelID, statusesTableVoiceState, statusesTableOnlineStatus)
-	_, tError := aDB.DB.NamedExec(tQuery, *aStatus)
+	_, tError := aDB.DB.Exec(tQuery, aStatus.UserID, aStatus.Timestamp, aStatus.ChannelID, aStatus.VoiceState, aStatus.OnlineStatus)
 	return tError
 }

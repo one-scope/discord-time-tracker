@@ -25,15 +25,15 @@ func (aDB *PostgresDB) IsExistsUserByID(aUserID string) (bool, error) {
 
 // ユーザー新規登録
 func (aDB *PostgresDB) InsertUser(aUser *User) error {
-	tQuery := fmt.Sprintf("INSERT INTO %s (%s,%s,%s) VALUES (:discord_id,:name,:is_member)", usersTable, usersTableID, usersTableName, usersTableIsMember)
-	_, tError := aDB.DB.NamedExec(tQuery, *aUser)
+	tQuery := fmt.Sprintf("INSERT INTO %s (%s,%s,%s) VALUES ($1,$2,$3)", usersTable, usersTableID, usersTableName, usersTableIsMember)
+	_, tError := aDB.DB.Exec(tQuery, aUser.ID, aUser.Name, aUser.IsMember)
 	return tError
 }
 
 // ユーザー更新
 func (aDB *PostgresDB) UpdateUser(aUser *User) error {
-	tQuery := fmt.Sprintf("UPDATE %s SET %s = :name, %s = :is_member WHERE %s = :discord_id", usersTable, usersTableName, usersTableIsMember, usersTableID)
-	_, tError := aDB.DB.NamedExec(tQuery, *aUser)
+	tQuery := fmt.Sprintf("UPDATE %s SET %s = $1, %s = $2 WHERE %s = $3", usersTable, usersTableName, usersTableIsMember, usersTableID)
+	_, tError := aDB.DB.Exec(tQuery, aUser.Name, aUser.IsMember, aUser.ID)
 	return tError
 }
 
