@@ -6,6 +6,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// ユーザーテーブルを作成
+func (aDB *PostgresDB) CreateUsersTable() error {
+	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT PRIMARY KEY,%s TEXT NOT NULL,%s BOOLEAN NOT NULL)", usersTable, usersTableID, usersTableName, usersTableIsMember)
+	_, tError := aDB.DB.Exec(tQuery)
+	return tError
+}
+
 // ユーザーの存在確認
 func (aDB *PostgresDB) IsExistsUserByID(aUserID string) (bool, error) {
 	var tIsExists bool

@@ -6,6 +6,14 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// ロールテーブルの作成
+func (aDB *PostgresDB) CreateRolesTable() error {
+	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT NOT NULL,%s TEXT NOT NULL,UNIQUE(%s,%s))",
+		rolesTable, usersTableID, rolesTableID, usersTableID, rolesTableID)
+	_, tError := aDB.DB.Exec(tQuery)
+	return tError
+}
+
 // ユーザーIDを使ってmap[string]stringでロールを全て取得
 func (aDB *PostgresDB) GetAllRolesIDMapByUserID(aUserID string) (map[string]string, error) {
 	tQuery := fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1", rolesTableID, rolesTable, usersTableID)
