@@ -1,6 +1,0 @@
-discordbot:
-  discord_bot_token: {DiscordBotトークン}
-  execution_timing: "* * * * *"
-
-log:
-  file_path: /var/log/log.txt

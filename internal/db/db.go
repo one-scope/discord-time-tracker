@@ -1,18 +1,21 @@
 package db
 
 import (
+	"fmt"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/one-scope/discord-time-tracker/internal/config"
 )
 
 type PostgresDB struct {
 	DB *sqlx.DB
 }
 
-// docker-composeの変数に依存している
-func New() (*PostgresDB, error) {
-	// 未実装：環境変数から引っ張ってdocker compose 変えてもいいようにする
-	tDb, tError := sqlx.Connect("postgres", "host=postgres port=5432 user=postgres password=postgres dbname=db sslmode=disable")
+func New(aDBConfig *config.DBConfig) (*PostgresDB, error) {
+	tDataSourceName := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		aDBConfig.Host, aDBConfig.Port, aDBConfig.User, aDBConfig.Password, aDBConfig.DBName)
+	tDb, tError := sqlx.Connect("postgres", tDataSourceName)
 	if tError != nil {
 		return nil, tError
 	}

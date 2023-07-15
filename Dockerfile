@@ -29,7 +29,5 @@ RUN set -x \
     && echo 'Asia/Tokyo' > /etc/timezone
 
 COPY --from=server /workdir/server /server
-COPY ./config.yml /config.yml
 
 ENTRYPOINT [ "/server" ]
-CMD [ "-c", "/config.yml" ]

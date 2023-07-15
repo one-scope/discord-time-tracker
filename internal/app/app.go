@@ -10,7 +10,6 @@ import (
 	"github.com/one-scope/discord-time-tracker/internal/config"
 	"github.com/one-scope/discord-time-tracker/internal/db"
 	"github.com/one-scope/discord-time-tracker/internal/discord"
-	"gopkg.in/yaml.v3"
 )
 
 type App struct {
@@ -18,21 +17,12 @@ type App struct {
 	LogFile    *os.File
 }
 
-func New(aConfigPath string) (*App, error) {
-	// 設定ファイル読み込み
-	tConfig := config.Config{}
-	tFile, tError := os.OpenFile(aConfigPath, os.O_RDONLY, 0)
-	if tError != nil {
-		return nil, tError
-	}
-	defer func() {
-		if tError := tFile.Close(); tError != nil {
-			log.Println(tError)
-		}
-	}()
-	if tError := yaml.NewDecoder(tFile).Decode(&tConfig); tError != nil {
-		return nil, tError
-	}
+func New() (*App, error) {
+	var tError error
+
+	// 環境変数読み込み
+	tConfig := &config.Config{}
+	tConfig.LoadEnv()
 
 	// App初期化
 	tApp := &App{}
@@ -44,7 +34,7 @@ func New(aConfigPath string) (*App, error) {
 	}
 
 	// データベース初期化
-	tDB, tError := db.New()
+	tDB, tError := db.New(&tConfig.DB)
 	if tError != nil {
 		return nil, fmt.Errorf("DB init error: %w", tError)
 	}

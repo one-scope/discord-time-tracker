@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -11,12 +10,8 @@ import (
 )
 
 func main() {
-	// 設定ファイルパス
-	tConfigPath := *flag.String("c", "config.yml", "set config file")
-	flag.Parse()
-
 	// App初期化
-	tApp, tError := app.New(tConfigPath)
+	tApp, tError := app.New()
 	if tError != nil {
 		log.Fatal(tError)
 	}
