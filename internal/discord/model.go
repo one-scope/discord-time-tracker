@@ -7,15 +7,15 @@ import (
 )
 
 type dataManager struct {
-	UsersByID    map[string]*db.User        // key: UserID
-	StatusesByID map[string][]*db.Statuslog // key: UserID
+	UsersByID    map[string]*db.User
+	StatusesByID map[string][]*db.Statuslog
 	DB           *db.PostgresDB
 }
 
 type Bot struct {
 	Session         *discordgo.Session
 	Cron            *cron.Cron
-	ExecutionTiming string
+	FlushTimingCron string
 	DataManager     *dataManager
 }
 

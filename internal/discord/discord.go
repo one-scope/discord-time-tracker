@@ -27,12 +27,11 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	tBot := &Bot{
 		Session:         tSession,
 		Cron:            tCron,
-		ExecutionTiming: aConfig.ExecutionTiming,
+		FlushTimingCron: aConfig.FlushTimingCron,
 		DataManager:     tManager,
 	}
 	return tBot, nil
 }
-
 func (aBot *Bot) Start() error {
 	// イベント実行
 	aBot.setEventHandlers()
@@ -41,14 +40,13 @@ func (aBot *Bot) Start() error {
 	}
 
 	// 定期実行
-	if _, tError := aBot.Cron.AddFunc(aBot.ExecutionTiming, aBot.DataManager.flushData()); tError != nil {
+	if _, tError := aBot.Cron.AddFunc(aBot.FlushTimingCron, aBot.DataManager.flushData()); tError != nil {
 		return tError
 	}
 	aBot.Cron.Start()
 
 	return nil
 }
-
 func (aBot *Bot) Close() error {
 	aBot.Cron.Stop()
 	return aBot.Session.Close()
@@ -57,7 +55,7 @@ func (aBot *Bot) Close() error {
 // 未実装：エラー時に指定したチャンネルにエラーを送信し、続行。
 func (aBot *Bot) setEventHandlers() {
 	// ボットが起動したとき。
-	aBot.onEvent(aBot.guildCreate)
+	aBot.onEvent(aBot.event)
 	// 誰かがサーバーに参加したとき。
 	aBot.onGuildMemberAdd(aBot.guildMemberAdd)
 	//誰かのロールが変わったとき。
@@ -69,25 +67,27 @@ func (aBot *Bot) setEventHandlers() {
 	// 誰かの音声通話が更新されたとき。// 接続、切断もこれ。切断時は ChannelID が空文字。
 	aBot.onVoiceStateUpdate(aBot.voiceStateUpdate)
 }
-
-// 未実装：リファクタリング
-// ステータスだけじゃなくて、ユーザー情報も取得する。
+func (aBot *Bot) event(aSession *discordgo.Session, aEvent *discordgo.Event) {
+	if aEvent.Type == "GUILD_CREATE" {
+		aBot.guildCreate(aSession, aEvent)
+	}
+}
 func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Event) {
 	var tMapRawData map[string]interface{}
 	json.Unmarshal(aEvent.RawData, &tMapRawData)
-
-	if aEvent.Type != "GUILD_CREATE" {
-		return
-	}
 	//GuildIDを取得
 	tGuildID, tOk := tMapRawData["id"].(string)
 	if !tOk {
 		log.Println("failed to convert guild id")
 		return
 	}
-
-	//全員分のユーザー情報を取得。初期状態にする。
-	tMembers, tError := aSession.GuildMembers(tGuildID, "", 1000)
+	//全てのユーザー情報を保存し、初期化する。
+	aBot.guildCreateInitUsers(aSession, tGuildID)
+	//全てのユーザーのステータスを保存し、初期化する。
+	aBot.guildCreateInitStatuses(aSession, tGuildID, tMapRawData)
+}
+func (aBot *Bot) guildCreateInitUsers(aSession *discordgo.Session, aGuildID string) {
+	tMembers, tError := aSession.GuildMembers(aGuildID, "", 1000)
 	if tError != nil {
 		log.Println("failed to get members:", tError)
 		return
@@ -100,10 +100,11 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 			log.Println("failed to update user:", tError)
 		}
 	}
-
+}
+func (aBot *Bot) guildCreateInitStatuses(aSession *discordgo.Session, aGuildID string, aMapRawData map[string]interface{}) {
 	// これを実行中に onVoiceStateUpdate が起こると、死なないにしろ順序がおかしくなるかも。
 	//全員分の音声状況を取得。初期状態にする。
-	tInterfacePresences, tOk := tMapRawData["presences"].([]interface{})
+	tInterfacePresences, tOk := aMapRawData["presences"].([]interface{})
 	if !tOk {
 		log.Println("failed to convert presences")
 		return
@@ -114,21 +115,23 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 			log.Println("failed to convert presence")
 			continue
 		}
-		// オフラインならスキップ
-		if fmt.Sprint(tPresence["status"]) != fmt.Sprint(discordgo.StatusOnline) {
-			continue
-		}
-
-		//UserIDを取得
 		tInterfaceUser, tOk := tPresence["user"].(map[string]interface{})
 		if !tOk {
 			log.Println("failed to convert member")
 			continue
 		}
-		tUserID := tInterfaceUser["id"].(string)
+		tUserID, tOk := tInterfaceUser["id"].(string)
+		if !tOk {
+			log.Println("failed to convert user id")
+			continue
+		}
 
+		// オフラインならスキップ
+		if fmt.Sprint(tPresence["status"]) != fmt.Sprint(discordgo.StatusOnline) {
+			continue
+		}
 		//Botはスキップ
-		tMember, tError := aSession.GuildMember(tGuildID, tUserID)
+		tMember, tError := aSession.GuildMember(aGuildID, tUserID)
 		if tError != nil {
 			log.Println("failed to get member:", tError)
 			continue
@@ -138,8 +141,8 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 
 		//ボイスチャンネルにいるならVoiceStateが手に入る。
 		//いない場合ErrStateNotFoundがでるので、それを無視している。
-		//ErrStateNotFoundが他の原因ででるかは不明。
-		tVoiceState, tError := aSession.State.VoiceState(tGuildID, tUserID)
+		//ErrStateNotFoundが他の場合でもでるのなら、この処理はやめたほうがいいかもしれない。
+		tVoiceState, tError := aSession.State.VoiceState(aGuildID, tUserID)
 		if errors.Is(tError, discordgo.ErrStateNotFound) {
 			tVoiceState = &discordgo.VoiceState{
 				UserID:    tUserID,
