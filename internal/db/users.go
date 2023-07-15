@@ -49,7 +49,7 @@ func (aDB *PostgresDB) GetAllUsers() ([]*User, error) {
 	var tUsers []*User
 	for tRows.Next() {
 		tUser := User{}
-		if tError := tRows.StructScan(&tUser); tError != nil {
+		if tError := tRows.Scan(&tUser.ID, &tUser.Name, &tUser.IsMember); tError != nil {
 			return nil, tError
 		}
 		tUsers = append(tUsers, &tUser)
