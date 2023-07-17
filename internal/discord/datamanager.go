@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/google/uuid"
 	"github.com/one-scope/discord-time-tracker/internal/db"
 )
 
@@ -23,13 +24,18 @@ func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember db.
 // DataMangager(メモリ)にステータス情報を一時保存
 func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOnline db.OnlineStatus) error {
 	tNow := time.Now()
+	tUUID := fmt.Sprintf("%s", uuid.New())
 	tStatus := &db.Statuslog{
+		ID:           tUUID,
+		PreviusID:    aManager.PreViusStatusLogIDByUserID[aVoiceState.UserID],
 		UserID:       aVoiceState.UserID,
 		ChannelID:    aVoiceState.ChannelID,
 		Timestamp:    tNow,
 		VoiceState:   statusMap(aVoiceState),
 		OnlineStatus: aOnline,
 	}
+	aManager.PreViusStatusLogIDByUserID[aVoiceState.UserID] = tUUID
+
 	aManager.StatusesByID[aVoiceState.UserID] = append(aManager.StatusesByID[aVoiceState.UserID], tStatus)
 
 	return nil
@@ -77,7 +83,16 @@ func (aManager *dataManager) flushData() func() {
 			for _, tRole := range tRoles {
 				log.Println(tRole)
 			}
+			tStatuses, tError := aManager.DB.GetAllStatusesByUserID(tUser.ID)
+			if tError != nil {
+				log.Printf("failed to get all statuses: %v", tError)
+				return
+			}
+			for _, tStatus := range tStatuses {
+				log.Println(tStatus)
+			}
 		}
+
 	}
 }
 

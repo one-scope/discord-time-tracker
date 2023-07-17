@@ -20,9 +20,10 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	tSession.Identify.Intents = discordgo.IntentsAll // 現在、テストのため全て許可
 	tCron := cron.New()
 	tManager := &dataManager{
-		UsersByID:    map[string]*db.User{},
-		StatusesByID: map[string][]*db.Statuslog{},
-		DB:           aDB,
+		UsersByID:                  map[string]*db.User{},
+		StatusesByID:               map[string][]*db.Statuslog{},
+		DB:                         aDB,
+		PreViusStatusLogIDByUserID: map[string]string{},
 	}
 	tBot := &Bot{
 		Session:         tSession,

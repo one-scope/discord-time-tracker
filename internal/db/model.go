@@ -12,6 +12,8 @@ const (
 	rolesTableID = "role_id"
 
 	statusesTable             = "statuses"
+	statusesTableID           = "statuses_id"
+	statusesTablePreviusID    = "previus_statuses_id"
 	statusesTableTimestamp    = "time_stamp"
 	statusesTableChannelID    = "channel_id"
 	statusesTableVoiceState   = "voice_state"
@@ -41,6 +43,8 @@ type User struct {
 }
 
 type Statuslog struct {
+	ID           string
+	PreviusID    string
 	UserID       string
 	Timestamp    time.Time
 	ChannelID    string
