@@ -35,6 +35,20 @@ const (
 	UnknownOnline OnlineStatus = "unknown"
 )
 
+type VoiceState string
+
+const (
+	VoiceOffline VoiceState = "offline"
+	VoiceDeaf    VoiceState = "speaker-mute"
+	VoiceMute    VoiceState = "mic-mute"
+	VoiceOn      VoiceState = "mic-on"
+	VoiceUnknown VoiceState = "unknown"
+)
+
+const (
+	ChannelUnknown = "unknown"
+)
+
 type User struct {
 	ID       string // DiscordのユーザーID
 	Name     string
@@ -48,6 +62,6 @@ type Statuslog struct {
 	UserID       string
 	Timestamp    time.Time
 	ChannelID    string
-	VoiceState   string
+	VoiceState   VoiceState
 	OnlineStatus OnlineStatus
 }

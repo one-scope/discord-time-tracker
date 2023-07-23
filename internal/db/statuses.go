@@ -1,6 +1,9 @@
 package db
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // ステータステーブルを作成
 func (aDB *PostgresDB) CreateStatusesTable() error {
@@ -26,7 +29,6 @@ func (aDB *PostgresDB) GetAllStatusesByUserID(aUserID string) ([]*Statuslog, err
 		return nil, tError
 	}
 	defer tRows.Close()
-
 	var tStatuses []*Statuslog
 	for tRows.Next() {
 		tStatus := Statuslog{}
@@ -40,4 +42,40 @@ func (aDB *PostgresDB) GetAllStatusesByUserID(aUserID string) ([]*Statuslog, err
 		return nil, tError
 	}
 	return tStatuses, nil
+}
+
+// ユーザーIDと期間を指定して昇順でステータスを取得
+func (aDB *PostgresDB) GetStatusesByUserIDAndRangeAscendingOrder(aUserID string, aStart time.Time, aEnd time.Time) ([]*Statuslog, error) {
+	tQuery := fmt.Sprintf("SELECT * FROM %s WHERE %s = $1 AND %s BETWEEN $2 AND $3 ORDER BY %s ASC",
+		statusesTable, usersTableID, statusesTableTimestamp, statusesTableTimestamp)
+	tRows, tError := aDB.DB.Query(tQuery, aUserID, aStart, aEnd)
+	if tError != nil {
+		return nil, tError
+	}
+	defer tRows.Close()
+
+	var tStatuses []*Statuslog
+	for tRows.Next() {
+		tStatus := Statuslog{}
+		if tError := tRows.Scan(&tStatus.ID, &tStatus.PreviusID, &tStatus.UserID, &tStatus.Timestamp, &tStatus.ChannelID, &tStatus.VoiceState, &tStatus.OnlineStatus); tError != nil {
+			return nil, tError
+		}
+		tStatuses = append(tStatuses, &tStatus)
+		//エラーチェック
+		if tError := tRows.Err(); tError != nil {
+			return nil, tError
+		}
+	}
+	return tStatuses, nil
+}
+
+// LogIDを指定してステータスを取得
+func (aDB *PostgresDB) GetStatusByLogID(aLogID string) (*Statuslog, error) {
+	tQuery := fmt.Sprintf("SELECT * FROM %s WHERE %s = $1", statusesTable, statusesTableID)
+	tRow := aDB.DB.QueryRowx(tQuery, aLogID)
+	tStatus := Statuslog{}
+	if tError := tRow.Scan(&tStatus.ID, &tStatus.PreviusID, &tStatus.UserID, &tStatus.Timestamp, &tStatus.ChannelID, &tStatus.VoiceState, &tStatus.OnlineStatus); tError != nil {
+		return nil, tError
+	}
+	return &tStatus, nil
 }

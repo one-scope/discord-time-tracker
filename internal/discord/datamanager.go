@@ -25,6 +25,9 @@ func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember db.
 func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOnline db.OnlineStatus) error {
 	tNow := time.Now()
 	tUUID := fmt.Sprintf("%s", uuid.New())
+
+	tOnline := aManager.determineOnlineStatus(aVoiceState, aOnline)
+
 	tStatus := &db.Statuslog{
 		ID:           tUUID,
 		PreviusID:    aManager.PreViusStatusLogIDByUserID[aVoiceState.UserID],
@@ -32,7 +35,7 @@ func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOn
 		ChannelID:    aVoiceState.ChannelID,
 		Timestamp:    tNow,
 		VoiceState:   statusMap(aVoiceState),
-		OnlineStatus: aOnline,
+		OnlineStatus: tOnline,
 	}
 	aManager.PreViusStatusLogIDByUserID[aVoiceState.UserID] = tUUID
 
@@ -40,17 +43,30 @@ func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOn
 
 	return nil
 }
-func statusMap(aVoiceState *discordgo.VoiceState) string {
+func (aManager *dataManager) determineOnlineStatus(aVoiceState *discordgo.VoiceState, aOnline db.OnlineStatus) db.OnlineStatus {
+	tOnline := aOnline
+	if tOnline == db.UnknownOnline {
+		if tValue, tOk := aManager.PreViusStatusLogOnlineByUserID[aVoiceState.UserID]; !tOk {
+			tOnline = db.Offline
+		} else {
+			tOnline = tValue
+		}
+	} else {
+		aManager.PreViusStatusLogOnlineByUserID[aVoiceState.UserID] = tOnline
+	}
+	return tOnline
+}
+func statusMap(aVoiceState *discordgo.VoiceState) db.VoiceState {
 	if aVoiceState.ChannelID == "" {
-		return "offline"
+		return db.VoiceOffline
 	}
 	if aVoiceState.SelfDeaf || aVoiceState.Deaf {
-		return "speaker-mute"
+		return db.VoiceDeaf
 	}
 	if aVoiceState.SelfMute || aVoiceState.Mute {
-		return "mic-mute"
+		return db.VoiceMute
 	}
-	return "mic-on"
+	return db.VoiceOn
 }
 
 // 未実装：失敗した場合、リトライする

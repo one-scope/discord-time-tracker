@@ -7,10 +7,11 @@ import (
 )
 
 type dataManager struct {
-	UsersByID                  map[string]*db.User
-	StatusesByID               map[string][]*db.Statuslog
-	DB                         *db.PostgresDB
-	PreViusStatusLogIDByUserID map[string]string
+	UsersByID                      map[string]*db.User
+	StatusesByID                   map[string][]*db.Statuslog
+	DB                             *db.PostgresDB
+	PreViusStatusLogIDByUserID     map[string]string
+	PreViusStatusLogOnlineByUserID map[string]db.OnlineStatus
 }
 
 type Bot struct {
@@ -36,5 +37,8 @@ func (aBot *Bot) onGuildMemberRemove(aHandler func(*discordgo.Session, *discordg
 	aBot.Session.AddHandler(aHandler)
 }
 func (aBot *Bot) onPresenceUpdate(aHandler func(*discordgo.Session, *discordgo.PresenceUpdate)) {
+	aBot.Session.AddHandler(aHandler)
+}
+func (aBot *Bot) onMessageCreate(aHandler func(*discordgo.Session, *discordgo.MessageCreate)) {
 	aBot.Session.AddHandler(aHandler)
 }

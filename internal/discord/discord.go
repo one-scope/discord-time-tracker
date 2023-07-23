@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/one-scope/discord-time-tracker/internal/api"
 	"github.com/one-scope/discord-time-tracker/internal/config"
 	"github.com/one-scope/discord-time-tracker/internal/db"
 	"github.com/robfig/cron/v3"
@@ -20,10 +24,11 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	tSession.Identify.Intents = discordgo.IntentsAll // 現在、テストのため全て許可
 	tCron := cron.New()
 	tManager := &dataManager{
-		UsersByID:                  map[string]*db.User{},
-		StatusesByID:               map[string][]*db.Statuslog{},
-		DB:                         aDB,
-		PreViusStatusLogIDByUserID: map[string]string{},
+		UsersByID:                      map[string]*db.User{},
+		StatusesByID:                   map[string][]*db.Statuslog{},
+		DB:                             aDB,
+		PreViusStatusLogIDByUserID:     map[string]string{},
+		PreViusStatusLogOnlineByUserID: map[string]db.OnlineStatus{},
 	}
 	tBot := &Bot{
 		Session:         tSession,
@@ -67,6 +72,8 @@ func (aBot *Bot) setEventHandlers() {
 	aBot.onPresenceUpdate(aBot.presenceUpdate)
 	// 誰かの音声通話が更新されたとき。// 接続、切断もこれ。切断時は ChannelID が空文字。
 	aBot.onVoiceStateUpdate(aBot.voiceStateUpdate)
+	// 誰かがメッセージを送信したとき。
+	aBot.onMessageCreate(aBot.messageCreate)
 }
 func (aBot *Bot) event(aSession *discordgo.Session, aEvent *discordgo.Event) {
 	if aEvent.Type == "GUILD_CREATE" {
@@ -201,4 +208,76 @@ func (aBot *Bot) voiceStateUpdate(aSession *discordgo.Session, aEvent *discordgo
 	if tError := aBot.DataManager.updateStatus(aEvent.VoiceState, db.UnknownOnline); tError != nil {
 		log.Println("failed to update status:", tError)
 	}
+}
+
+// 集計APIのテスト用
+func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) {
+	if aEvent.Author.ID == aSession.State.User.ID {
+		return
+	}
+
+	if aEvent.Content == "allusers" {
+		aBot.sendMessageAllUsers(aSession, aEvent)
+	} else {
+		if tError := aBot.sendMessageAllStatuses(aSession, aEvent); tError != nil {
+			log.Println("failed to send message:", tError)
+		}
+	}
+}
+func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) {
+	tUsers, tError := api.GetAllUsers(aBot.DataManager.DB)
+	if tError != nil {
+		log.Println("failed to get all users:", tError)
+		return
+	}
+	tText := ""
+	for _, tUser := range tUsers {
+		tText += fmt.Sprintf("%v\n", *tUser)
+		tText += "\n"
+	}
+	aSession.ChannelMessageSend(aEvent.ChannelID, tText)
+}
+func (aBot *Bot) sendMessageAllStatuses(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) error {
+	// status,20230701,20230731,60,684946062061993994
+	// status, start , end , minute , userIDs...
+
+	// 引数パース
+	tArgs := strings.Split(aEvent.Content, ",")
+	tStart, tError := time.Parse("20060102", tArgs[1])
+	if tError != nil {
+		return fmt.Errorf("failed to parse start: %w", tError)
+	}
+	tEnd, tError := time.Parse("20060102", tArgs[2])
+	if tError != nil {
+		return fmt.Errorf("failed to parse end: %w", tError)
+	}
+	tMinute, tError := strconv.ParseInt(tArgs[3], 10, 64)
+	if tError != nil {
+		return fmt.Errorf("failed to parse minute: %w", tError)
+	}
+
+	// 集計
+	tStatuses, tError := api.AggregateStatusWithinRangeByUserIDs(aBot.DataManager.DB, tStart, tEnd, time.Minute*time.Duration(tMinute), tArgs[4:])
+	if tError != nil {
+		return fmt.Errorf("failed to aggregate status within range by user ids: %w", tError)
+	}
+
+	// 結果表示
+	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Start: %v\n\n", tStatuses.Start))
+	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("End: %v\n\n", tStatuses.End))
+	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Period: %v\n\n", tStatuses.Period))
+	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("StatusesByUserID:\n\n"))
+	for _, tStatuses := range tStatuses.StatusesByUserID {
+		for _, tStatus := range tStatuses {
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Start-End\n\n"))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v-%v\n\n", tStatus.Start, tStatus.End))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Channel\n\n"))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.ChannelByID))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Voice\n\n"))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.VoiceByState))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Online\n\n"))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.OnlineByStatus))
+		}
+	}
+	return nil
 }
