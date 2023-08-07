@@ -61,3 +61,26 @@ func (aDB *PostgresDB) GetAllUsers() ([]*User, error) {
 	}
 	return tUsers, nil
 }
+
+// 全てのユーザーのIDを取得
+func (aDB *PostgresDB) GetAllUsersID() ([]string, error) {
+	tQuery := fmt.Sprintf("SELECT %s FROM %s", usersTableID, usersTable)
+	tRows, tError := aDB.DB.Queryx(tQuery)
+	if tError != nil {
+		return nil, tError
+	}
+	defer tRows.Close()
+
+	var tUsersID []string
+	for tRows.Next() {
+		var tUserID string
+		if tError := tRows.Scan(&tUserID); tError != nil {
+			return nil, tError
+		}
+		tUsersID = append(tUsersID, tUserID)
+	}
+	if tError := tRows.Err(); tError != nil {
+		return nil, tError
+	}
+	return tUsersID, nil
+}

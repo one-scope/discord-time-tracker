@@ -6,22 +6,6 @@ import (
 	"github.com/one-scope/discord-time-tracker/internal/db"
 )
 
-func GetAllUsers(aDB *db.PostgresDB) ([]*db.User, error) {
-	tUsers, tError := aDB.GetAllUsers()
-	if tError != nil {
-		return nil, tError
-	}
-	for _, tUser := range tUsers {
-		tRoles, tError := aDB.GetAllRolesIDByUserID(tUser.ID)
-		if tError != nil {
-			return nil, tError
-		}
-		tUser.Roles = tRoles
-	}
-
-	return tUsers, nil
-}
-
 type AllUsersTotalStatuses struct {
 	Start            time.Time
 	End              time.Time
@@ -119,7 +103,7 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 
 func (aStatus *TotalStatus) totalChannel(aNowChannel string, aStartTime time.Time, aEndTime time.Time) {
 	if aNowChannel == "" {
-		return
+		aNowChannel = "offline"
 	}
 	tChannelTotal := aStatus.ChannelByID[aNowChannel]
 	tChannelTotal.TotalTime += aEndTime.Sub(aStartTime)

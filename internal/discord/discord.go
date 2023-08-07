@@ -238,16 +238,35 @@ func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.Me
 		return
 	}
 
-	if aEvent.Content == "allusers" {
+	// 引数パース
+	tArgs := strings.Split(aEvent.Content, ",")
+
+	if tArgs[0] == "allusers" {
 		if tError := aBot.sendMessageAllUsers(aSession, aEvent); tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
-	} else {
-		if tError := aBot.sendMessageAllStatuses(aSession, aEvent); tError != nil {
+	} else if tArgs[0] == "status" {
+		if tError := aBot.sendMessageStatuses(aSession, aEvent, nil); tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
+	} else if tArgs[0] == "allstatus" {
+		tUsersID, tError := api.GetAllUsersID(aBot.DataManager.DB)
+		if tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to get all users id: %s", tError))
+			return
+		}
+		if tError := aBot.sendMessageStatuses(aSession, aEvent, tUsersID); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
+	} else if tArgs[0] == "help" {
+		if tError := aBot.sendMessageHelp(aSession, aEvent); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
+	} else {
+		aSession.ChannelMessageSend(aEvent.ChannelID, "invalid command")
 	}
 }
+
 func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) error {
 	tUsers, tError := api.GetAllUsers(aBot.DataManager.DB)
 	if tError != nil {
@@ -262,7 +281,7 @@ func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discor
 
 	return nil
 }
-func (aBot *Bot) sendMessageAllStatuses(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) error {
+func (aBot *Bot) sendMessageStatuses(aSession *discordgo.Session, aEvent *discordgo.MessageCreate, aUsersID []string) error {
 	// status,20230701,20230731,60,684946062061993994
 	// status, start , end , minute , userIDs...
 
@@ -280,30 +299,44 @@ func (aBot *Bot) sendMessageAllStatuses(aSession *discordgo.Session, aEvent *dis
 	if tError != nil {
 		return fmt.Errorf("failed to parse minute: %w", tError)
 	}
+	tUsersID := tArgs[4:]
+	if len(aUsersID) != 0 {
+		tUsersID = aUsersID
+	}
 
 	// 集計
-	tStatuses, tError := api.AggregateStatusWithinRangeByUserIDs(aBot.DataManager.DB, tStart, tEnd, time.Minute*time.Duration(tMinute), tArgs[4:])
+	tStatuses, tError := api.AggregateStatusWithinRangeByUserIDs(aBot.DataManager.DB, tStart, tEnd, time.Minute*time.Duration(tMinute), tUsersID)
 	if tError != nil {
 		return fmt.Errorf("failed to aggregate status within range by user ids: %w", tError)
 	}
 
 	// 結果表示
-	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Start: %v\n\n", tStatuses.Start))
-	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("End: %v\n\n", tStatuses.End))
-	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Period: %v\n\n", tStatuses.Period))
-	aSession.ChannelMessageSend(aEvent.ChannelID, "StatusesByUserID:\n\n")
+	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("全集計範囲: %v/%v/%v - %v/%v/%v \n", tStatuses.Start.Year(), int(tStatuses.Start.Month()), tStatuses.Start.Day(),
+		tStatuses.End.Year(), int(tStatuses.End.Month()), tStatuses.End.Day()))
+	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Period: %v\n", tStatuses.Period))
 	for tID, tStatuses := range tStatuses.StatusesByUserID {
-		aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("USER:%s\n\n", tID))
+		aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("UserID:%s\n", tID))
 		for _, tStatus := range tStatuses {
-			aSession.ChannelMessageSend(aEvent.ChannelID, "Start-End\n\n")
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v-%v\n\n", tStatus.Start, tStatus.End))
-			aSession.ChannelMessageSend(aEvent.ChannelID, "Channel\n\n")
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.ChannelByID))
-			aSession.ChannelMessageSend(aEvent.ChannelID, "Voice\n\n")
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.VoiceByState))
-			aSession.ChannelMessageSend(aEvent.ChannelID, "Online\n\n")
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.OnlineByStatus))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("集計範囲: %v/%v/%v - %v/%v/%v\n", tStatus.Start.Year(), int(tStatus.Start.Month()), tStatus.Start.Day(),
+				tStatus.End.Year(), int(tStatus.End.Month()), tStatus.End.Day()))
+			aSession.ChannelMessageSend(aEvent.ChannelID, "Channel\n")
+			for tKey, tValue := range tStatus.ChannelByID {
+				aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v : %v\n", tKey, tValue.TotalTime))
+			}
+			aSession.ChannelMessageSend(aEvent.ChannelID, "Voice\n")
+			for tKey, tValue := range tStatus.VoiceByState {
+				aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v : %v\n", tKey, tValue.TotalTime))
+			}
+			aSession.ChannelMessageSend(aEvent.ChannelID, "Online\n")
+			for tKey, tValue := range tStatus.OnlineByStatus {
+				aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v : %v\n", tKey, tValue.TotalTime))
+			}
 		}
 	}
+	return nil
+}
+
+func (aBot *Bot) sendMessageHelp(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) error {
+	aSession.ChannelMessageSend(aEvent.ChannelID, "command help\n")
 	return nil
 }
