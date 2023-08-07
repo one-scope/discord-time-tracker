@@ -51,10 +51,8 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 		Start:            aStart,
 		End:              aEnd,
 		Period:           aPeriod,
-		StatusesByUserID: nil,
+		StatusesByUserID: map[string][]*TotalStatus{},
 	}
-	//返り値のステータス部分
-	tApiStatusesByUserID := map[string][]*TotalStatus{}
 
 	//ユーザーごとに集計
 	for _, tUserID := range tUserIDs {
@@ -70,43 +68,33 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 		tNowVoiceState := string(tInitLogStatuses.VoiceState)
 		//Periodごとに集計
 		for tStart := aStart; tStart.Before(aEnd); tStart = tStart.Add(aPeriod) {
+			tNowTime := tStart
 			//未実装：timezoneを揃える。DBでUTCになっちゃう
-			tEnd := tStart.Add(aPeriod)
+			tEnd := tNowTime.Add(aPeriod)
 			if tEnd.After(time.Now().In(time.UTC).Add(time.Hour * 9)) {
 				tEnd = time.Now().In(time.UTC).Add(time.Hour * 9)
 			}
 
 			//ステータスログを取得
-			tLogStatuses, tError := aDB.GetStatusesByUserIDAndRangeAscendingOrder(tUserID, tStart, tEnd)
+			tLogStatuses, tError := aDB.GetStatusesByUserIDAndRangeAscendingOrder(tUserID, tNowTime, tEnd)
 			if tError != nil {
 				return nil, tError
 			}
-
-			//未実装：現在のステータスから集計をする
-			//未実装：現在のステータスが不明、初期値なら区間外の直近のログを取得して集計をする
-			//ログがないならスキップ、未実装：直近のログがないならcontinue
+			//ログがないならスキップ
 			if len(tLogStatuses) == 0 {
 				continue
 			}
 
 			tStatus := &TotalStatus{
-				Start:          tStart,
+				Start:          tNowTime,
 				End:            tEnd,
 				ChannelByID:    map[string]TotalChannel{},
 				VoiceByState:   map[string]TotalVoiceState{},
 				OnlineByStatus: map[string]TotalOnlineStatus{},
 			}
-
-			tNowTime := tStart
 			for _, tLogStatus := range tLogStatuses {
-
-				//チャンネル
 				tStatus.totalChannel(tNowChannel, tNowTime, tLogStatus.Timestamp)
-
-				//ボイス
 				tStatus.totalVoiceState(tNowVoiceState, tNowTime, tLogStatus.Timestamp)
-
-				//オンライン
 				tStatus.totalOnlineStatus(tNowOnlineStatus, tNowTime, tLogStatus.Timestamp)
 
 				//集計用ステータス更新
@@ -123,35 +111,26 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 			tStatuses = append(tStatuses, tStatus)
 		}
 
-		tApiStatusesByUserID[tUserID] = tStatuses
+		tApiStatuses.StatusesByUserID[tUserID] = tStatuses
 	}
 
-	tApiStatuses.StatusesByUserID = tApiStatusesByUserID
 	return tApiStatuses, nil
 }
 
 func (aStatus *TotalStatus) totalChannel(aNowChannel string, aStartTime time.Time, aEndTime time.Time) {
-	if aNowChannel == db.ChannelUnknown || aNowChannel == "" {
+	if aNowChannel == "" {
 		return
 	}
 	tChannelTotal := aStatus.ChannelByID[aNowChannel]
 	tChannelTotal.TotalTime += aEndTime.Sub(aStartTime)
 	aStatus.ChannelByID[aNowChannel] = tChannelTotal
 }
-
 func (aStatus *TotalStatus) totalVoiceState(aNowVoiceState string, aStartTime time.Time, aEndTime time.Time) {
-	if aNowVoiceState == string(db.VoiceUnknown) {
-		return
-	}
 	tVoiceTotal := aStatus.VoiceByState[aNowVoiceState]
 	tVoiceTotal.TotalTime += aEndTime.Sub(aStartTime)
 	aStatus.VoiceByState[aNowVoiceState] = tVoiceTotal
 }
-
 func (aStatus *TotalStatus) totalOnlineStatus(aNowOnlineStatus string, aStartTime time.Time, aEndTime time.Time) {
-	if aNowOnlineStatus == string(db.UnknownOnline) {
-		return
-	}
 	tOnlineTotal := aStatus.OnlineByStatus[aNowOnlineStatus]
 	tOnlineTotal.TotalTime += aEndTime.Sub(aStartTime)
 	aStatus.OnlineByStatus[aNowOnlineStatus] = tOnlineTotal

@@ -56,7 +56,6 @@ func (aDB *PostgresDB) GetAllUsers() ([]*User, error) {
 		}
 		tUsers = append(tUsers, &tUser)
 	}
-	//エラーチェック
 	if tError := tRows.Err(); tError != nil {
 		return nil, tError
 	}

@@ -42,11 +42,6 @@ const (
 	VoiceDeaf    VoiceState = "speaker-mute"
 	VoiceMute    VoiceState = "mic-mute"
 	VoiceOn      VoiceState = "mic-on"
-	VoiceUnknown VoiceState = "unknown"
-)
-
-const (
-	ChannelUnknown = "unknown"
 )
 
 type User struct {
