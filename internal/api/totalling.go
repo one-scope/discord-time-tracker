@@ -1,7 +1,6 @@
 package api
 
 import (
-	"log"
 	"time"
 
 	"github.com/one-scope/discord-time-tracker/internal/db"
@@ -61,15 +60,18 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 	for _, tUserID := range tUserIDs {
 		tStatuses := []*TotalStatus{}
 
-		//集計用のステータス
-		tNowOnlineStatus := string(db.UnknownOnline)
-		tNowVoiceState := string(db.VoiceUnknown)
-		tNowChannel := db.ChannelUnknown
+		//初期ステータス設定
+		tInitLogStatuses, tError := aDB.GetRecentStatusByUserIDAndTimestamp(tUserID, aStart)
+		if tError != nil {
+			return nil, tError
+		}
+		tNowChannel := tInitLogStatuses.ChannelID
+		tNowOnlineStatus := string(tInitLogStatuses.OnlineStatus)
+		tNowVoiceState := string(tInitLogStatuses.VoiceState)
 		//Periodごとに集計
 		for tStart := aStart; tStart.Before(aEnd); tStart = tStart.Add(aPeriod) {
 			//未実装：timezoneを揃える。DBでUTCになっちゃう
 			tEnd := tStart.Add(aPeriod)
-			log.Println(time.Now().In(time.UTC).Add(time.Hour * 9))
 			if tEnd.After(time.Now().In(time.UTC).Add(time.Hour * 9)) {
 				tEnd = time.Now().In(time.UTC).Add(time.Hour * 9)
 			}
@@ -79,6 +81,7 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 			if tError != nil {
 				return nil, tError
 			}
+
 			//未実装：現在のステータスから集計をする
 			//未実装：現在のステータスが不明、初期値なら区間外の直近のログを取得して集計をする
 			//ログがないならスキップ、未実装：直近のログがないならcontinue
@@ -98,32 +101,12 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 			for _, tLogStatus := range tLogStatuses {
 
 				//チャンネル
-				if tNowChannel == db.ChannelUnknown {
-					tNowVoiceState, tError = initChannel(aDB, tLogStatus)
-					if tError != nil {
-						return nil, tError
-					}
-				}
 				tStatus.totalChannel(tNowChannel, tNowTime, tLogStatus.Timestamp)
 
 				//ボイス
-				if tNowVoiceState == string(db.VoiceUnknown) {
-					tNowVoiceState, tError = initVoiceState(aDB, tLogStatus)
-					if tError != nil {
-						return nil, tError
-					}
-				}
 				tStatus.totalVoiceState(tNowVoiceState, tNowTime, tLogStatus.Timestamp)
 
 				//オンライン
-				//最初の常態を取得
-				if tNowOnlineStatus == string(db.UnknownOnline) {
-					tNowOnlineStatus, tError = initOnlineStatus(aDB, tLogStatus)
-					if tError != nil {
-						return nil, tError
-					}
-				}
-				//オンライン集計
 				tStatus.totalOnlineStatus(tNowOnlineStatus, tNowTime, tLogStatus.Timestamp)
 
 				//集計用ステータス更新
@@ -147,41 +130,6 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 	return tApiStatuses, nil
 }
 
-func initChannel(aDB *db.PostgresDB, aLogStatus *db.Statuslog) (string, error) {
-	if aLogStatus.PreviusID != "" {
-		tStatusLog, tError := aDB.GetStatusByLogID(aLogStatus.PreviusID)
-		if tError != nil {
-			return string(db.ChannelUnknown), tError
-		}
-		return tStatusLog.ChannelID, nil
-	}
-	return "", nil
-}
-
-func initVoiceState(aDB *db.PostgresDB, aLogStatus *db.Statuslog) (string, error) {
-	if aLogStatus.PreviusID != "" {
-		tStatusLog, tError := aDB.GetStatusByLogID(aLogStatus.PreviusID)
-		if tError != nil {
-			return string(db.VoiceUnknown), tError
-		}
-		return string(tStatusLog.VoiceState), nil
-	}
-
-	return string(db.VoiceOffline), nil
-}
-
-func initOnlineStatus(aDB *db.PostgresDB, aLogStatus *db.Statuslog) (string, error) {
-	if aLogStatus.PreviusID != "" {
-		tStatusLog, tError := aDB.GetStatusByLogID(aLogStatus.PreviusID)
-		if tError != nil {
-			return string(db.UnknownOnline), tError
-		}
-		return string(tStatusLog.OnlineStatus), nil
-	}
-
-	return string(db.Offline), nil
-}
-
 func (aStatus *TotalStatus) totalChannel(aNowChannel string, aStartTime time.Time, aEndTime time.Time) {
 	if aNowChannel == db.ChannelUnknown || aNowChannel == "" {
 		return
@@ -201,8 +149,6 @@ func (aStatus *TotalStatus) totalVoiceState(aNowVoiceState string, aStartTime ti
 }
 
 func (aStatus *TotalStatus) totalOnlineStatus(aNowOnlineStatus string, aStartTime time.Time, aEndTime time.Time) {
-	log.Println("totalOnlineStatus")
-	log.Println("StartTime-EndTime", aStartTime, aEndTime)
 	if aNowOnlineStatus == string(db.UnknownOnline) {
 		return
 	}
