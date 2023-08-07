@@ -34,6 +34,7 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 		Session:         tSession,
 		Cron:            tCron,
 		FlushTimingCron: aConfig.FlushTimingCron,
+		ErrorChannel:    aConfig.DiscordErrorChannelID,
 		DataManager:     tManager,
 	}
 	return tBot, nil
@@ -56,6 +57,20 @@ func (aBot *Bot) Start() error {
 func (aBot *Bot) Close() error {
 	aBot.Cron.Stop()
 	return aBot.Session.Close()
+}
+
+// イベント発生時のエラー処理
+func (aBot *Bot) onEventError(aSession *discordgo.Session, aErrorMessage string) {
+	if aBot.ErrorChannel == "" {
+		log.Println("Warning: channel id is empty")
+		log.Println(aErrorMessage)
+		return
+	}
+	if _, tError := aSession.ChannelMessageSend(aBot.ErrorChannel, aErrorMessage); tError != nil {
+		log.Println("Error: failed to send message to error channel")
+		log.Println(tError)
+		return
+	}
 }
 
 // 未実装：エラー時に指定したチャンネルにエラーを送信し、続行。
@@ -86,7 +101,7 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 	//GuildIDを取得
 	tGuildID, tOk := tMapRawData["id"].(string)
 	if !tOk {
-		log.Println("failed to convert guild id")
+		aBot.onEventError(aSession, "guildCreate: failed to convert guild id")
 		return
 	}
 	//全てのユーザー情報を保存し、初期化する。
@@ -97,7 +112,7 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 func (aBot *Bot) guildCreateInitUsers(aSession *discordgo.Session, aGuildID string) {
 	tMembers, tError := aSession.GuildMembers(aGuildID, "", 1000)
 	if tError != nil {
-		log.Println("failed to get members:", tError)
+		aBot.onEventError(aSession, fmt.Sprintf("guildCreate: failed to get members: %s", tError))
 		return
 	}
 	for _, tMember := range tMembers {
@@ -105,7 +120,8 @@ func (aBot *Bot) guildCreateInitUsers(aSession *discordgo.Session, aGuildID stri
 			continue
 		}
 		if tError := aBot.DataManager.updateUser(tMember, db.CurrentMember); tError != nil {
-			log.Println("failed to update user:", tError)
+			aBot.onEventError(aSession, fmt.Sprintf("guildCreate: failed to update user: %s", tError))
+			return
 		}
 	}
 }
@@ -114,23 +130,23 @@ func (aBot *Bot) guildCreateInitStatuses(aSession *discordgo.Session, aGuildID s
 	//全員分の音声状況を取得。初期状態にする。
 	tInterfacePresences, tOk := aMapRawData["presences"].([]interface{})
 	if !tOk {
-		log.Println("failed to convert presences")
+		aBot.onEventError(aSession, "guildCreate: failed to convert presences")
 		return
 	}
 	for _, tInterfacePresence := range tInterfacePresences {
 		tPresence, tOk := tInterfacePresence.(map[string]interface{})
 		if !tOk {
-			log.Println("failed to convert presence")
+			aBot.onEventError(aSession, "guildCreate: failed to convert presence")
 			continue
 		}
 		tInterfaceUser, tOk := tPresence["user"].(map[string]interface{})
 		if !tOk {
-			log.Println("failed to convert member")
+			aBot.onEventError(aSession, "guildCreate: failed to convert member")
 			continue
 		}
 		tUserID, tOk := tInterfaceUser["id"].(string)
 		if !tOk {
-			log.Println("failed to convert user id")
+			aBot.onEventError(aSession, "guildCreate: failed to convert user id")
 			continue
 		}
 
@@ -141,7 +157,7 @@ func (aBot *Bot) guildCreateInitStatuses(aSession *discordgo.Session, aGuildID s
 		//Botはスキップ
 		tMember, tError := aSession.GuildMember(aGuildID, tUserID)
 		if tError != nil {
-			log.Println("failed to get member:", tError)
+			aBot.onEventError(aSession, fmt.Sprintf("guildCreate: failed to get member: %s", tError))
 			continue
 		} else if tMember.User.Bot {
 			continue
@@ -157,12 +173,13 @@ func (aBot *Bot) guildCreateInitStatuses(aSession *discordgo.Session, aGuildID s
 				ChannelID: "",
 			}
 		} else if tError != nil {
-			log.Println("failed to get voice state:", tError)
+			aBot.onEventError(aSession, fmt.Sprintf("guildCreate: failed to get voice state: %s", tError))
 			continue
 		}
 
 		if tError := aBot.DataManager.updateStatus(tVoiceState, db.Online); tError != nil {
-			log.Println("failed to update status:", tError)
+			aBot.onEventError(aSession, fmt.Sprintf("guildCreate: failed to update status: %s", tError))
+			return
 		}
 	}
 }
@@ -171,7 +188,8 @@ func (aBot *Bot) guildMemberAdd(aSession *discordgo.Session, aEvent *discordgo.G
 		return
 	}
 	if tError := aBot.DataManager.updateUser(aEvent.Member, db.CurrentMember); tError != nil {
-		log.Println("failed to add user:", tError)
+		aBot.onEventError(aSession, fmt.Sprintf("guildMemberAdd: failed to add user: %s", tError))
+		return
 	}
 }
 func (aBot *Bot) guildMemberUpdate(aSession *discordgo.Session, aEvent *discordgo.GuildMemberUpdate) {
@@ -179,7 +197,8 @@ func (aBot *Bot) guildMemberUpdate(aSession *discordgo.Session, aEvent *discordg
 		return
 	}
 	if tError := aBot.DataManager.updateUser(aEvent.Member, db.CurrentMember); tError != nil {
-		log.Println("failed to update user:", tError)
+		aBot.onEventError(aSession, fmt.Sprintf("guildMemberUpdate: failed to update user: %s", tError))
+		return
 	}
 }
 func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordgo.GuildMemberRemove) {
@@ -187,7 +206,8 @@ func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordg
 		return
 	}
 	if tError := aBot.DataManager.updateUser(aEvent.Member, db.OldMember); tError != nil {
-		log.Println("failed to remove user:", tError)
+		aBot.onEventError(aSession, fmt.Sprintf("guildMemberRemove: failed to remove user: %s", tError))
+		return
 	}
 }
 func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.PresenceUpdate) {
@@ -201,12 +221,14 @@ func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.P
 	}
 
 	if tError := aBot.DataManager.updateStatus(tVoiceState, tIsOnline); tError != nil {
-		log.Println("failed to update status:", tError)
+		aBot.onEventError(aSession, fmt.Sprintf("presenceUpdate: failed to update status: %s", tError))
+		return
 	}
 }
 func (aBot *Bot) voiceStateUpdate(aSession *discordgo.Session, aEvent *discordgo.VoiceStateUpdate) {
 	if tError := aBot.DataManager.updateStatus(aEvent.VoiceState, db.UnknownOnline); tError != nil {
-		log.Println("failed to update status:", tError)
+		aBot.onEventError(aSession, fmt.Sprintf("voiceStateUpdate: failed to update status: %s", tError))
+		return
 	}
 }
 
@@ -217,18 +239,19 @@ func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.Me
 	}
 
 	if aEvent.Content == "allusers" {
-		aBot.sendMessageAllUsers(aSession, aEvent)
+		if tError := aBot.sendMessageAllUsers(aSession, aEvent); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
 	} else {
 		if tError := aBot.sendMessageAllStatuses(aSession, aEvent); tError != nil {
-			log.Println("failed to send message:", tError)
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
 	}
 }
-func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) {
+func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) error {
 	tUsers, tError := api.GetAllUsers(aBot.DataManager.DB)
 	if tError != nil {
-		log.Println("failed to get all users:", tError)
-		return
+		return fmt.Errorf("failed to get all users: %s", tError)
 	}
 	tText := ""
 	for _, tUser := range tUsers {
@@ -236,6 +259,8 @@ func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discor
 		tText += "\n"
 	}
 	aSession.ChannelMessageSend(aEvent.ChannelID, tText)
+
+	return nil
 }
 func (aBot *Bot) sendMessageAllStatuses(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) error {
 	// status,20230701,20230731,60,684946062061993994
@@ -266,16 +291,17 @@ func (aBot *Bot) sendMessageAllStatuses(aSession *discordgo.Session, aEvent *dis
 	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Start: %v\n\n", tStatuses.Start))
 	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("End: %v\n\n", tStatuses.End))
 	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Period: %v\n\n", tStatuses.Period))
-	aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("StatusesByUserID:\n\n"))
-	for _, tStatuses := range tStatuses.StatusesByUserID {
+	aSession.ChannelMessageSend(aEvent.ChannelID, "StatusesByUserID:\n\n")
+	for tID, tStatuses := range tStatuses.StatusesByUserID {
+		aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("USER:%s\n\n", tID))
 		for _, tStatus := range tStatuses {
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Start-End\n\n"))
+			aSession.ChannelMessageSend(aEvent.ChannelID, "Start-End\n\n")
 			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v-%v\n\n", tStatus.Start, tStatus.End))
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Channel\n\n"))
+			aSession.ChannelMessageSend(aEvent.ChannelID, "Channel\n\n")
 			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.ChannelByID))
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Voice\n\n"))
+			aSession.ChannelMessageSend(aEvent.ChannelID, "Voice\n\n")
 			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.VoiceByState))
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("Online\n\n"))
+			aSession.ChannelMessageSend(aEvent.ChannelID, "Online\n\n")
 			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v\n\n", tStatus.OnlineByStatus))
 		}
 	}

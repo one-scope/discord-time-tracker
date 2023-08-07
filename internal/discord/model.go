@@ -18,6 +18,7 @@ type Bot struct {
 	Session         *discordgo.Session
 	Cron            *cron.Cron
 	FlushTimingCron string
+	ErrorChannel    string
 	DataManager     *dataManager
 }
 

@@ -12,8 +12,9 @@ type Config struct {
 }
 
 type DiscordBotConfig struct {
-	DiscordBotToken string
-	FlushTimingCron string
+	DiscordBotToken       string
+	FlushTimingCron       string
+	DiscordErrorChannelID string
 }
 type LogConfig struct {
 	FilePath string
@@ -29,8 +30,9 @@ type DBConfig struct {
 func (aConfig *Config) LoadEnv() {
 
 	tDiscordBotConfig := DiscordBotConfig{
-		DiscordBotToken: os.Getenv("DISCORD_BOT_TOKEN"),
-		FlushTimingCron: os.Getenv("DISCORD_FLUSH_TIMING_CRON"),
+		DiscordBotToken:       os.Getenv("DISCORD_BOT_TOKEN"),
+		FlushTimingCron:       os.Getenv("DISCORD_FLUSH_TIMING_CRON"),
+		DiscordErrorChannelID: os.Getenv("DISCORD_ERROR_CHANNEL_ID"),
 	}
 	tLogConfig := LogConfig{
 		FilePath: path.Join(os.Getenv("LOG_FILE_BASE_PATH"), os.Getenv("LOG_FILE_NAME")),
