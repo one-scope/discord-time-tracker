@@ -7,10 +7,10 @@ import (
 )
 
 type dataManager struct {
-	UsersByID                      map[string]*db.User
-	StatusesByID                   map[string][]*db.Statuslog
-	DB                             *db.PostgresDB
-	PreViusStatusLogOnlineByUserID map[string]db.OnlineStatus
+	UsersByID                map[string]*db.User
+	StatusesByID             map[string][]*db.Statuslog
+	DB                       *db.PostgresDB
+	PreViusStatusLogByUserID map[string]*db.Statuslog
 }
 
 type Bot struct {

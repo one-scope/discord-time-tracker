@@ -26,33 +26,50 @@ func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOn
 	tNow := time.Now()
 	tUUID := fmt.Sprintf("%v", uuid.New())
 
-	tOnline := aManager.determineOnlineStatus(aVoiceState, aOnline)
+	tOnline := aManager.determineOnlineStatus(aVoiceState.UserID, aOnline)
+	tChannelID := aManager.determineChannelID(aVoiceState.UserID, aVoiceState.ChannelID)
 
 	tStatus := &db.Statuslog{
 		ID:           tUUID,
 		UserID:       aVoiceState.UserID,
-		ChannelID:    aVoiceState.ChannelID,
+		ChannelID:    tChannelID,
 		Timestamp:    tNow,
 		VoiceState:   statusMap(aVoiceState),
 		OnlineStatus: tOnline,
 	}
-
+	aManager.PreViusStatusLogByUserID[aVoiceState.UserID] = tStatus
 	aManager.StatusesByID[aVoiceState.UserID] = append(aManager.StatusesByID[aVoiceState.UserID], tStatus)
 
 	return nil
 }
-func (aManager *dataManager) determineOnlineStatus(aVoiceState *discordgo.VoiceState, aOnline db.OnlineStatus) db.OnlineStatus {
-	tOnline := aOnline
-	if tOnline == db.UnknownOnline {
-		if tValue, tOk := aManager.PreViusStatusLogOnlineByUserID[aVoiceState.UserID]; !tOk {
-			tOnline = db.Offline
+
+// unknownOnlineの場合に前回のログを参照してChannelIDを決定する
+func (aManager *dataManager) determineChannelID(aUserID string, aChannelID string) string {
+	tChannelID := aChannelID
+	//ステータスが分からない場合、前回のログを参照する
+	if tChannelID == db.UnknownChannelID {
+		if tPreviusLog, tOk := aManager.PreViusStatusLogByUserID[aUserID]; tOk {
+			tChannelID = tPreviusLog.ChannelID
 		} else {
-			tOnline = tValue
+			tChannelID = ""
 		}
-	} else {
-		aManager.PreViusStatusLogOnlineByUserID[aVoiceState.UserID] = tOnline
 	}
-	return tOnline
+
+	return tChannelID
+}
+
+// unknownOnlineの場合に前回のログを参照してOnlineStatusを決定する
+func (aManager *dataManager) determineOnlineStatus(aUserID string, aOnlineStatus db.OnlineStatus) db.OnlineStatus {
+	tOnlineStatus := aOnlineStatus
+	//ステータスが分からない場合、前回のログを参照する
+	if tOnlineStatus == db.UnknownOnline {
+		if tPreviusLog, tOk := aManager.PreViusStatusLogByUserID[aUserID]; tOk {
+			tOnlineStatus = tPreviusLog.OnlineStatus
+		} else {
+			tOnlineStatus = db.Offline
+		}
+	}
+	return tOnlineStatus
 }
 func statusMap(aVoiceState *discordgo.VoiceState) db.VoiceState {
 	if aVoiceState.ChannelID == "" {

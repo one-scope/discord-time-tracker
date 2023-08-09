@@ -21,13 +21,13 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	if tError != nil {
 		return nil, tError
 	}
-	tSession.Identify.Intents = discordgo.IntentsAll // 現在、テストのため全て許可
+	tSession.Identify.Intents = discordgo.IntentsAll // 未実装：現在、テストのため全て許可
 	tCron := cron.New()
 	tManager := &dataManager{
-		UsersByID:                      map[string]*db.User{},
-		StatusesByID:                   map[string][]*db.Statuslog{},
-		DB:                             aDB,
-		PreViusStatusLogOnlineByUserID: map[string]db.OnlineStatus{},
+		UsersByID:                map[string]*db.User{},
+		StatusesByID:             map[string][]*db.Statuslog{},
+		DB:                       aDB,
+		PreViusStatusLogByUserID: map[string]*db.Statuslog{},
 	}
 	tBot := &Bot{
 		Session:         tSession,
@@ -208,10 +208,13 @@ func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordg
 		return
 	}
 }
+
+// オンライン常態の変更
 func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.PresenceUpdate) {
+	log.Println("presenceUpdate TEST")
 	tVoiceState := &discordgo.VoiceState{
 		UserID:    aEvent.User.ID,
-		ChannelID: "",
+		ChannelID: db.UnknownChannelID,
 	}
 	tIsOnline := db.Online
 	if aEvent.Presence.Status != discordgo.StatusOnline {
@@ -223,6 +226,8 @@ func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.P
 		return
 	}
 }
+
+// ボイスステータスの変更
 func (aBot *Bot) voiceStateUpdate(aSession *discordgo.Session, aEvent *discordgo.VoiceStateUpdate) {
 	if tError := aBot.DataManager.updateStatus(aEvent.VoiceState, db.UnknownOnline); tError != nil {
 		aBot.onEventError(aSession, fmt.Sprintf("voiceStateUpdate: failed to update status: %s", tError))

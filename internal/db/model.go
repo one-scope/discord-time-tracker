@@ -43,6 +43,10 @@ const (
 	VoiceOn      VoiceState = "mic-on"
 )
 
+const (
+	UnknownChannelID = "unknownchanneldontuse"
+)
+
 type User struct {
 	ID       string // DiscordのユーザーID
 	Name     string
