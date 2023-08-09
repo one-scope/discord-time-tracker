@@ -211,7 +211,6 @@ func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordg
 
 // オンライン常態の変更
 func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.PresenceUpdate) {
-	log.Println("presenceUpdate TEST")
 	tVoiceState := &discordgo.VoiceState{
 		UserID:    aEvent.User.ID,
 		ChannelID: db.UnknownChannelID,
