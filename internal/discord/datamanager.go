@@ -30,14 +30,12 @@ func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOn
 
 	tStatus := &db.Statuslog{
 		ID:           tUUID,
-		PreviusID:    aManager.PreViusStatusLogIDByUserID[aVoiceState.UserID],
 		UserID:       aVoiceState.UserID,
 		ChannelID:    aVoiceState.ChannelID,
 		Timestamp:    tNow,
 		VoiceState:   statusMap(aVoiceState),
 		OnlineStatus: tOnline,
 	}
-	aManager.PreViusStatusLogIDByUserID[aVoiceState.UserID] = tUUID
 
 	aManager.StatusesByID[aVoiceState.UserID] = append(aManager.StatusesByID[aVoiceState.UserID], tStatus)
 

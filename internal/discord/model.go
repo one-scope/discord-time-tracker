@@ -10,7 +10,6 @@ type dataManager struct {
 	UsersByID                      map[string]*db.User
 	StatusesByID                   map[string][]*db.Statuslog
 	DB                             *db.PostgresDB
-	PreViusStatusLogIDByUserID     map[string]string
 	PreViusStatusLogOnlineByUserID map[string]db.OnlineStatus
 }
 

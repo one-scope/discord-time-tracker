@@ -27,7 +27,6 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 		UsersByID:                      map[string]*db.User{},
 		StatusesByID:                   map[string][]*db.Statuslog{},
 		DB:                             aDB,
-		PreViusStatusLogIDByUserID:     map[string]string{},
 		PreViusStatusLogOnlineByUserID: map[string]db.OnlineStatus{},
 	}
 	tBot := &Bot{
@@ -73,7 +72,6 @@ func (aBot *Bot) onEventError(aSession *discordgo.Session, aErrorMessage string)
 	}
 }
 
-// 未実装：エラー時に指定したチャンネルにエラーを送信し、続行。
 func (aBot *Bot) setEventHandlers() {
 	// ボットが起動したとき。
 	aBot.onEvent(aBot.event)
