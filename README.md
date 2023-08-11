@@ -1,86 +1,38 @@
 # discord-time-tracker
 
 ## 概要
-https://github.com/orgs/one-scope/discussions/4
+discordサーバーのメンバーの状態を保存し集計し表示します。
+
+保存する情報はユーザー名やロールなどのユーザー情報とチャンネルの滞在時間やオンライン時間などのステータスです。
 
 ## セットアップ
 
-config.yml 
+設定ファイル`.env`
 
-discord_bot_token以外は変更する必要なし
-```
-discordbot:
-  discord_bot_token: {DiscordBotトークン} #現在はAdministratorの権限を持ったdiscordbotのトークン
-  data_dir: /var/lib #データの保存先ディレクトリ. docker-composeでvolumeしている
-  execution_timing: "* * * * *" # cron 形式のファイルに出力する頻度
+example.envを参考に作成します。
 
-log:
-  file_path: /var/log/log.txt #ログの出力先ディレクトリ. docker-compose.ymlでvolumeしている
-```
 
 起動
 ```
 docker compose up -d 
 ```
 
+## 使用方法
 
-## 仕様
-discussionで公開されていた要件から以下のような仕様にしました。
+任意のTextチャンネルにコマンドを送信しするとBotが集計し同チャンネルに結果を送信します。
 
-discordイベントが発生するたびにメモリにデータを保存する。
-
-config.ymlで設定されたcron形式のexecution_timingの頻度でメモリのデータをファイルに出力する。
-
-メンバーを記録するユーザーファイル(1個)、disocrdでのイベントを記録するステータスファイル(n個)の2種類のファイルを作成
-
-ステータスファイルは日付ごとに作成し、1時間間隔でデータを集計し記録する。
-
-以下のようなイメージ
+### コマンド
+- 全てのユーザー情報
 ```
-20230623_status.json
-    20230623-00:00
-        user1
-            id
-            ...
-        user2
-    20230623-01:00
-        user1
-        ...
+tracker,users
 ```
-
-ユーザーファイル
+- 全てのユーザーの集計範囲を分単位で分割したステータス
 ```
-ユーザーID
-ユーザー名
-ロール 
-ユーザーが現在ギルドにいるか
+tracker,statuses,20230101,20230131,1440
 ```
-ステータスファイル
+- 指定したユーザーの集計範囲を分単位で分割したステータス
+
+ユーザーIDをコンマ区切りで指定
 ```
-時間帯 #1時間ごとに分類して集計
-ユーザーID
-オンライン/オフライン #1時間当たりのオンライン時間(秒)
-ボイスチャンネル # 1時間当たりに滞在していた全てのチャンネルIDとそれぞれの滞在時間(秒)
-マイクON/マイクOFF/スピーカーOFF # 
+tracker,status,20230101,20230131,1440,141241241,345345345,...
 ```
-
-
-### ざっくりとした依存関係
-
-大きい
-
-main：appの初期化、Bot開始
-
-app：ログの初期化、Botの初期化
-
-discord > discord.go：リスナー
-
-discord > datamanager.go：リスナーのデータをメモリに保存、ファイル出力用の形にメモリのデータを整形
-
-discord > model.go：Botやファイル出力する際の構造体、Botのリスナー登録用の関数を定義
-
-db：メモリのデータをファイルに出力するための関数
-
-config：config.ymlファイルのデータから受け取るための構造体
-
-小さい
