@@ -2,6 +2,7 @@ package api
 
 import "github.com/one-scope/discord-time-tracker/internal/db"
 
+// 全てのユーザーの情報を取得
 func GetAllUsers(aDB *db.PostgresDB) ([]*db.User, error) {
 	tUsers, tError := aDB.GetAllUsers()
 	if tError != nil {

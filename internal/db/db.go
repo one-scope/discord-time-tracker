@@ -13,14 +13,17 @@ type PostgresDB struct {
 }
 
 func New(aDBConfig *config.DBConfig) (*PostgresDB, error) {
+	// DB接続
 	tDataSourceName := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		aDBConfig.Host, aDBConfig.Port, aDBConfig.User, aDBConfig.Password, aDBConfig.DBName)
 	tDb, tError := sqlx.Connect("postgres", tDataSourceName)
 	if tError != nil {
 		return nil, tError
 	}
+
 	tPostgresDB := &PostgresDB{tDb}
 
+	// テーブル作成
 	if tError := tPostgresDB.CreateUsersTable(); tError != nil {
 		return nil, tError
 	}

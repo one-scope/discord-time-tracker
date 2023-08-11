@@ -17,18 +17,22 @@ import (
 )
 
 func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
+	// DiscordSession初期化
 	tSession, tError := discordgo.New("Bot " + aConfig.DiscordBotToken)
 	if tError != nil {
 		return nil, tError
 	}
 	tSession.Identify.Intents = discordgo.IntentsAll // 未実装：現在、テストのため全て許可
+	// Cron初期化
 	tCron := cron.New()
+	// DataManager初期化
 	tManager := &dataManager{
 		UsersByID:                map[string]*db.User{},
 		StatusesByID:             map[string][]*db.Statuslog{},
 		DB:                       aDB,
 		PreViusStatusLogByUserID: map[string]*db.Statuslog{},
 	}
+	// Bot初期化
 	tBot := &Bot{
 		Session:         tSession,
 		Cron:            tCron,
@@ -39,13 +43,13 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	return tBot, nil
 }
 func (aBot *Bot) Start() error {
-	// イベント実行
+	// イベントハンドラ設定
 	aBot.setEventHandlers()
 	if tError := aBot.Session.Open(); tError != nil {
 		return tError
 	}
 
-	// 定期実行
+	// 定期的にデータをDBに書き込む
 	if _, tError := aBot.Cron.AddFunc(aBot.FlushTimingCron, aBot.DataManager.flushData()); tError != nil {
 		return tError
 	}
@@ -65,7 +69,7 @@ func (aBot *Bot) onEventError(aSession *discordgo.Session, aErrorMessage string)
 		log.Println(aErrorMessage)
 		return
 	}
-	if _, tError := aSession.ChannelMessageSend(aBot.ErrorChannel, aErrorMessage); tError != nil {
+	if _, tError := aSession.ChannelMessageSend(aBot.ErrorChannel, "Error: "+aErrorMessage); tError != nil {
 		log.Println("Error: failed to send message to error channel")
 		log.Println(tError)
 		return
@@ -88,11 +92,15 @@ func (aBot *Bot) setEventHandlers() {
 	// 誰かがメッセージを送信したとき。
 	aBot.onMessageCreate(aBot.messageCreate)
 }
+
+// 　何かのイベントが発生したとき
 func (aBot *Bot) event(aSession *discordgo.Session, aEvent *discordgo.Event) {
 	if aEvent.Type == "GUILD_CREATE" {
 		aBot.guildCreate(aSession, aEvent)
 	}
 }
+
+// Botが起動したとき
 func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Event) {
 	var tMapRawData map[string]interface{}
 	json.Unmarshal(aEvent.RawData, &tMapRawData)
@@ -181,6 +189,8 @@ func (aBot *Bot) guildCreateInitStatuses(aSession *discordgo.Session, aGuildID s
 		}
 	}
 }
+
+// 誰かがサーバーに参加したとき
 func (aBot *Bot) guildMemberAdd(aSession *discordgo.Session, aEvent *discordgo.GuildMemberAdd) {
 	if aEvent.Member.User.Bot {
 		return
@@ -190,6 +200,8 @@ func (aBot *Bot) guildMemberAdd(aSession *discordgo.Session, aEvent *discordgo.G
 		return
 	}
 }
+
+// 誰かのユーザー情報が更新されたとき
 func (aBot *Bot) guildMemberUpdate(aSession *discordgo.Session, aEvent *discordgo.GuildMemberUpdate) {
 	if aEvent.Member.User.Bot {
 		return
@@ -199,6 +211,8 @@ func (aBot *Bot) guildMemberUpdate(aSession *discordgo.Session, aEvent *discordg
 		return
 	}
 }
+
+// 誰かがサーバーから退出したとき
 func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordgo.GuildMemberRemove) {
 	if aEvent.Member.User.Bot {
 		return
@@ -209,7 +223,7 @@ func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordg
 	}
 }
 
-// オンライン常態の変更
+// 誰かのオンライン状態が変わったとき
 func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.PresenceUpdate) {
 	tVoiceState := &discordgo.VoiceState{
 		UserID:    aEvent.User.ID,
@@ -226,7 +240,7 @@ func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.P
 	}
 }
 
-// ボイスステータスの変更
+// 誰かのボイスステータスが変わったとき。ボイスチャンネルに入ったり出たりしたとき。
 func (aBot *Bot) voiceStateUpdate(aSession *discordgo.Session, aEvent *discordgo.VoiceStateUpdate) {
 	if tError := aBot.DataManager.updateStatus(aEvent.VoiceState, db.UnknownOnline); tError != nil {
 		aBot.onEventError(aSession, fmt.Sprintf("voiceStateUpdate: failed to update status: %s", tError))
@@ -234,24 +248,37 @@ func (aBot *Bot) voiceStateUpdate(aSession *discordgo.Session, aEvent *discordgo
 	}
 }
 
-// 集計APIのテスト用
+const PREFIX_COMMAND = "tracker"
+
+// 誰かがメッセージを送信したとき // apiの入出力
 func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) {
 	if aEvent.Author.ID == aSession.State.User.ID {
 		return
 	}
 
-	// 引数パース
-	tArgs := strings.Split(aEvent.Content, ",")
+	// コマンド解析
+	tContent := strings.Split(aEvent.Content, ",")
+	//未実装：timetracker部分を外で定義する
+	if tContent[0] != PREFIX_COMMAND {
+		return
+	}
+	if len(tContent) < 2 {
+		if tError := aBot.sendMessageHelp(aSession, aEvent); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
+	}
 
-	if tArgs[0] == "allusers" {
+	tCommand := tContent[1]
+
+	if tCommand == "users" { //全てのユーザー情報を表示する。
 		if tError := aBot.sendMessageAllUsers(aSession, aEvent); tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
-	} else if tArgs[0] == "status" {
-		if tError := aBot.sendMessageStatuses(aSession, aEvent, nil); tError != nil {
+	} else if tCommand == "status" { //指定したユーザーのステータスを表示する。
+		if tError := aBot.sendMessageStatuses(aSession, aEvent, tContent[5:]); tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
-	} else if tArgs[0] == "allstatus" {
+	} else if tCommand == "statuses" { //全てのユーザーのステータスを表示する。
 		tUsersID, tError := api.GetAllUsersID(aBot.DataManager.DB)
 		if tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to get all users id: %s", tError))
@@ -260,12 +287,10 @@ func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.Me
 		if tError := aBot.sendMessageStatuses(aSession, aEvent, tUsersID); tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
-	} else if tArgs[0] == "help" {
+	} else { //ヘルプを表示する。
 		if tError := aBot.sendMessageHelp(aSession, aEvent); tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
-	} else {
-		aSession.ChannelMessageSend(aEvent.ChannelID, "invalid command")
 	}
 }
 
@@ -284,30 +309,23 @@ func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discor
 	return nil
 }
 func (aBot *Bot) sendMessageStatuses(aSession *discordgo.Session, aEvent *discordgo.MessageCreate, aUsersID []string) error {
-	// status,20230701,20230731,60,684946062061993994
-	// status, start , end , minute , userIDs...
-
 	// 引数パース
 	tArgs := strings.Split(aEvent.Content, ",")
-	tStart, tError := time.Parse("20060102", tArgs[1])
+	tStart, tError := time.Parse("20060102", tArgs[2])
 	if tError != nil {
 		return fmt.Errorf("failed to parse start: %w", tError)
 	}
-	tEnd, tError := time.Parse("20060102", tArgs[2])
+	tEnd, tError := time.Parse("20060102", tArgs[3])
 	if tError != nil {
 		return fmt.Errorf("failed to parse end: %w", tError)
 	}
-	tMinute, tError := strconv.ParseInt(tArgs[3], 10, 64)
+	tMinute, tError := strconv.ParseInt(tArgs[4], 10, 64)
 	if tError != nil {
 		return fmt.Errorf("failed to parse minute: %w", tError)
 	}
-	tUsersID := tArgs[4:]
-	if len(aUsersID) != 0 {
-		tUsersID = aUsersID
-	}
 
 	// 集計
-	tStatuses, tError := api.AggregateStatusWithinRangeByUserIDs(aBot.DataManager.DB, tStart, tEnd, time.Minute*time.Duration(tMinute), tUsersID)
+	tStatuses, tError := api.GetTotalStatusesByUsersID(aBot.DataManager.DB, tStart, tEnd, time.Minute*time.Duration(tMinute), aUsersID)
 	if tError != nil {
 		return fmt.Errorf("failed to aggregate status within range by user ids: %w", tError)
 	}
@@ -319,8 +337,9 @@ func (aBot *Bot) sendMessageStatuses(aSession *discordgo.Session, aEvent *discor
 	for tID, tStatuses := range tStatuses.StatusesByUserID {
 		aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("UserID:%s\n", tID))
 		for _, tStatus := range tStatuses {
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("集計範囲: %v/%v/%v - %v/%v/%v\n", tStatus.Start.Year(), int(tStatus.Start.Month()), tStatus.Start.Day(),
-				tStatus.End.Year(), int(tStatus.End.Month()), tStatus.End.Day()))
+			//未実装：DBでUTCになっちゃうのが解決されたらそのまま表示できるようにする。
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("集計範囲: %v/%v/%v/%v:%v - %v/%v/%v/%v:%v\n", tStatus.Start.Year(), int(tStatus.Start.Month()), tStatus.Start.Day(),
+				tStatus.Start.Hour(), tStatus.Start.Minute(), tStatus.End.Year(), int(tStatus.End.Month()), tStatus.End.Day(), tStatus.End.Hour(), tStatus.End.Minute()))
 			aSession.ChannelMessageSend(aEvent.ChannelID, "Channel\n")
 			for tKey, tValue := range tStatus.ChannelByID {
 				aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v : %v\n", tKey, tValue.TotalTime))
@@ -339,6 +358,11 @@ func (aBot *Bot) sendMessageStatuses(aSession *discordgo.Session, aEvent *discor
 }
 
 func (aBot *Bot) sendMessageHelp(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) error {
-	aSession.ChannelMessageSend(aEvent.ChannelID, "command help\n")
+	tMessage := PREFIX_COMMAND + ",users : 全てのユーザー情報\n" +
+		PREFIX_COMMAND + ",statuses,20230101,20230131,1440 : 集計範囲と集計の分割時間(分)を指定しステータスを集計\n" +
+		PREFIX_COMMAND + ",status,20230101,20230131,1440,USER_IDs... : 指定したUser(カンマ区切り)のステータスを集計\n" +
+		PREFIX_COMMAND + ",help : ヘルプを表示\n"
+
+	aSession.ChannelMessageSend(aEvent.ChannelID, tMessage)
 	return nil
 }

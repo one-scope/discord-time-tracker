@@ -29,7 +29,7 @@ type TotalOnlineStatus struct {
 	TotalTime time.Duration
 }
 
-func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, aEnd time.Time, aPeriod time.Duration, tUserIDs []string) (*AllUsersTotalStatuses, error) {
+func GetTotalStatusesByUsersID(aDB *db.PostgresDB, aStart time.Time, aEnd time.Time, aPeriod time.Duration, tUserIDs []string) (*AllUsersTotalStatuses, error) {
 	//返り値
 	tAllUsersStatuses := &AllUsersTotalStatuses{
 		Start:            aStart,
@@ -50,12 +50,12 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 		tNowChannel := tInitLogStatuses.ChannelID
 		tNowOnlineStatus := string(tInitLogStatuses.OnlineStatus)
 		tNowVoiceState := string(tInitLogStatuses.VoiceState)
+
 		//Periodごとに集計
-		for tStart := aStart; tStart.Before(aEnd); tStart = tStart.Add(aPeriod) {
+		for tStart := aStart; tStart.Before(aEnd) && tStart.Before(time.Now()); tStart = tStart.Add(aPeriod) {
 			tNowStart := tStart
-			//未実装：timezoneを揃える。DBでUTCになっちゃう
-			tNowEnd := tNowStart.Add(aPeriod)
-			if tNowEnd.After(time.Now().In(time.UTC).Add(time.Hour * 9)) {
+			tNowEnd := tNowStart.Add(aPeriod)                              //未実装：timezoneを揃える。DBでUTCになっちゃう
+			if tNowEnd.After(time.Now().In(time.UTC).Add(time.Hour * 9)) { // 集計終了時間が現在より未来の場合は現在まで集計
 				tNowEnd = time.Now().In(time.UTC).Add(time.Hour * 9)
 			}
 
@@ -77,6 +77,7 @@ func AggregateStatusWithinRangeByUserIDs(aDB *db.PostgresDB, aStart time.Time, a
 				OnlineByStatus: map[string]TotalOnlineStatus{},
 			}
 			for _, tLogStatus := range tLogStatuses {
+				//ログの間の集計
 				tStatus.totalChannel(tNowChannel, tNowStart, tLogStatus.Timestamp)
 				tStatus.totalVoiceState(tNowVoiceState, tNowStart, tLogStatus.Timestamp)
 				tStatus.totalOnlineStatus(tNowOnlineStatus, tNowStart, tLogStatus.Timestamp)

@@ -83,7 +83,7 @@ func (aDB *PostgresDB) GetStatusByLogID(aLogID string) (*Statuslog, error) {
 	return &tStatus, nil
 }
 
-// 日付を指定してそれより前で一番近いステータスを取得
+// 日付を指定してそれより前で一番近いステータスを取得.なければオフラインを返す
 func (aDB *PostgresDB) GetRecentStatusByUserIDAndTimestamp(aUserID string, aTimestamp time.Time) (*Statuslog, error) {
 	tQuery := fmt.Sprintf("SELECT * FROM %s WHERE %s = $1 AND %s <= $2 ORDER BY %s DESC LIMIT 1",
 		statusesTable, usersTableID, statusesTableTimestamp, statusesTableTimestamp)
