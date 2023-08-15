@@ -54,9 +54,9 @@ func GetTotalStatusesByUsersID(aDB *db.PostgresDB, aStart time.Time, aEnd time.T
 		//Periodごとに集計
 		for tStart := aStart; tStart.Before(aEnd) && tStart.Before(time.Now()); tStart = tStart.Add(aPeriod) {
 			tNowStart := tStart
-			tNowEnd := tNowStart.Add(aPeriod)                              //未実装：timezoneを揃える。DBでUTCになっちゃう
-			if tNowEnd.After(time.Now().In(time.UTC).Add(time.Hour * 9)) { // 集計終了時間が現在より未来の場合は現在まで集計
-				tNowEnd = time.Now().In(time.UTC).Add(time.Hour * 9)
+			tNowEnd := tNowStart.Add(aPeriod)
+			if tNowEnd.After(time.Now()) { // 集計終了時間が現在より未来の場合は現在まで集計
+				tNowEnd = time.Now()
 			}
 
 			//ステータスログを取得

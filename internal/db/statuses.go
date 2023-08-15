@@ -10,7 +10,7 @@ import (
 
 // ステータステーブルを作成
 func (aDB *PostgresDB) CreateStatusesTable() error {
-	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT PRIMARY KEY,%s TEXT NOT NULL,%s TIMESTAMP NOT NULL,%s TEXT NOT NULL,%s TEXT NOT NULL,%s TEXT NOT NULL)",
+	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT PRIMARY KEY,%s TEXT NOT NULL,%s TIMESTAMP with time zone NOT NULL,%s TEXT NOT NULL,%s TEXT NOT NULL,%s TEXT NOT NULL)",
 		statusesTable, statusesTableID, usersTableID, statusesTableTimestamp, statusesTableChannelID, statusesTableVoiceState, statusesTableOnlineStatus)
 	_, tError := aDB.DB.Exec(tQuery)
 	return tError

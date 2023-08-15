@@ -311,11 +311,15 @@ func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discor
 func (aBot *Bot) sendMessageStatuses(aSession *discordgo.Session, aEvent *discordgo.MessageCreate, aUsersID []string) error {
 	// 引数パース
 	tArgs := strings.Split(aEvent.Content, ",")
-	tStart, tError := time.Parse("20060102", tArgs[2])
+	tTimezoon, tError := time.LoadLocation("Asia/Tokyo")
+	if tError != nil {
+		return fmt.Errorf("failed to load location: %w", tError)
+	}
+	tStart, tError := time.ParseInLocation("20060102", tArgs[2], tTimezoon)
 	if tError != nil {
 		return fmt.Errorf("failed to parse start: %w", tError)
 	}
-	tEnd, tError := time.Parse("20060102", tArgs[3])
+	tEnd, tError := time.ParseInLocation("20060102", tArgs[3], tTimezoon)
 	if tError != nil {
 		return fmt.Errorf("failed to parse end: %w", tError)
 	}
