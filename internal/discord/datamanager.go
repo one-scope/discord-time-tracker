@@ -2,7 +2,6 @@ package discord
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -83,21 +82,16 @@ func statusMap(aVoiceState *discordgo.VoiceState) db.VoiceState {
 	return db.VoiceOn
 }
 
-// 未実装：失敗したときにエラーをディスコードに送信する
-func (aManager *dataManager) flushData() func() {
-	return func() {
-		if tError := aManager.flushUsersData(); tError != nil {
-			log.Printf("failed to flush users data: %v", tError)
-			return
-		}
-		if tError := aManager.flushStatusesData(); tError != nil {
-			log.Printf("failed to flush statuses data: %v", tError)
-			return
-		}
+func (aManager *dataManager) flushData() error {
+	if tError := aManager.flushUsersData(); tError != nil {
+		return fmt.Errorf("failed to flush users data: %v", tError)
 	}
+	if tError := aManager.flushStatusesData(); tError != nil {
+		return fmt.Errorf("failed to flush statuses data: %v", tError)
+	}
+	return nil
 }
 
-// 未実装：ユーザーを登録して、メモリリセットするまでの間に、更新があるかもしれない。あるなら処理もしくはロックが必要
 func (aManager *dataManager) flushUsersData() error {
 	// ユーザー情報の更新がないなら何もしない
 	if len(aManager.UsersByID) == 0 {

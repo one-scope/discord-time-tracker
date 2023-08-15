@@ -6,8 +6,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-//未実装：ロールが含まれないことを関数に明示する
-
 // ユーザーテーブルを作成
 func (aDB *PostgresDB) CreateUsersTable() error {
 	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT PRIMARY KEY,%s TEXT NOT NULL,%s BOOLEAN NOT NULL)", usersTable, usersTableID, usersTableName, usersTableIsMember)

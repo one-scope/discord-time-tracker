@@ -50,7 +50,11 @@ func (aBot *Bot) Start() error {
 	}
 
 	// 定期的にデータをDBに書き込む
-	if _, tError := aBot.Cron.AddFunc(aBot.FlushTimingCron, aBot.DataManager.flushData()); tError != nil {
+	if _, tError := aBot.Cron.AddFunc(aBot.FlushTimingCron, func() {
+		if tError := aBot.DataManager.flushData(); tError != nil {
+			aBot.onEventError(aBot.Session, fmt.Sprintf("failed to flush data: %s", tError))
+		}
+	}); tError != nil {
 		return tError
 	}
 	aBot.Cron.Start()
@@ -66,9 +70,11 @@ func (aBot *Bot) Close() error {
 func (aBot *Bot) onEventError(aSession *discordgo.Session, aErrorMessage string) {
 	if aBot.ErrorChannel == "" {
 		log.Println("Warning: channel id is empty")
-		log.Println(aErrorMessage)
+		log.Println("Error: ", aErrorMessage)
 		return
 	}
+
+	log.Println("Error: ", aErrorMessage)
 	if _, tError := aSession.ChannelMessageSend(aBot.ErrorChannel, "Error: "+aErrorMessage); tError != nil {
 		log.Println("Error: failed to send message to error channel")
 		log.Println(tError)
@@ -258,7 +264,6 @@ func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.Me
 
 	// コマンド解析
 	tContent := strings.Split(aEvent.Content, ",")
-	//未実装：timetracker部分を外で定義する
 	if tContent[0] != PREFIX_COMMAND {
 		return
 	}
@@ -341,9 +346,7 @@ func (aBot *Bot) sendMessageStatuses(aSession *discordgo.Session, aEvent *discor
 	for tID, tStatuses := range tStatuses.StatusesByUserID {
 		aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("UserID:%s\n", tID))
 		for _, tStatus := range tStatuses {
-			//未実装：DBでUTCになっちゃうのが解決されたらそのまま表示できるようにする。
-			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("集計範囲: %v/%v/%v/%v:%v - %v/%v/%v/%v:%v\n", tStatus.Start.Year(), int(tStatus.Start.Month()), tStatus.Start.Day(),
-				tStatus.Start.Hour(), tStatus.Start.Minute(), tStatus.End.Year(), int(tStatus.End.Month()), tStatus.End.Day(), tStatus.End.Hour(), tStatus.End.Minute()))
+			aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("集計範囲: %v - %v\n", tStatus.Start, tStatus.End))
 			aSession.ChannelMessageSend(aEvent.ChannelID, "Channel\n")
 			for tKey, tValue := range tStatus.ChannelByID {
 				aSession.ChannelMessageSend(aEvent.ChannelID, fmt.Sprintf("%v : %v\n", tKey, tValue.TotalTime))
