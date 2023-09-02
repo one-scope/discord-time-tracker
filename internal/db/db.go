@@ -30,6 +30,9 @@ func New(aDBConfig *config.DBConfig) (*PostgresDB, error) {
 	if tError := tPostgresDB.CreateStatusesTable(); tError != nil {
 		return nil, tError
 	}
+	if tError := tPostgresDB.CreateUsersRolesTable(); tError != nil {
+		return nil, tError
+	}
 	if tError := tPostgresDB.CreateRolesTable(); tError != nil {
 		return nil, tError
 	}

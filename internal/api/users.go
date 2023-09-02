@@ -9,7 +9,7 @@ func GetAllUsers(aDB *db.PostgresDB) ([]*db.User, error) {
 		return nil, tError
 	}
 	for _, tUser := range tUsers {
-		tRoles, tError := aDB.GetAllRolesIDByUserID(tUser.ID)
+		tRoles, tError := aDB.GetAllUsersRolesIDByUserID(tUser.ID)
 		if tError != nil {
 			return nil, tError
 		}
@@ -22,6 +22,16 @@ func GetAllUsers(aDB *db.PostgresDB) ([]*db.User, error) {
 // 全てのユーザーのIDを取得
 func GetAllUsersID(aDB *db.PostgresDB) ([]string, error) {
 	tUsersID, tError := aDB.GetAllUsersID()
+	if tError != nil {
+		return nil, tError
+	}
+
+	return tUsersID, nil
+}
+
+// 特定のロールを持つユーザーのIDを取得
+func GetUsersIDByRoleID(aDB *db.PostgresDB, aRoleID string) ([]string, error) {
+	tUsersID, tError := aDB.GetUsersIDByRoleID(aRoleID)
 	if tError != nil {
 		return nil, tError
 	}

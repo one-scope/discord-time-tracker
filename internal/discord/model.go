@@ -7,10 +7,16 @@ import (
 )
 
 type dataManager struct {
+	DB                       *db.PostgresDB
 	UsersByID                map[string]*db.User
 	StatusesByID             map[string][]*db.Statuslog
-	DB                       *db.PostgresDB
+	Roles                    []*roleWithAction
 	PreViusStatusLogByUserID map[string]*db.Statuslog
+}
+
+type roleWithAction struct {
+	Role   *db.Role
+	Action db.RoleAction
 }
 
 type Bot struct {
@@ -40,5 +46,14 @@ func (aBot *Bot) onPresenceUpdate(aHandler func(*discordgo.Session, *discordgo.P
 	aBot.Session.AddHandler(aHandler)
 }
 func (aBot *Bot) onMessageCreate(aHandler func(*discordgo.Session, *discordgo.MessageCreate)) {
+	aBot.Session.AddHandler(aHandler)
+}
+func (aBot *Bot) onGuildRoleCreate(aHandler func(*discordgo.Session, *discordgo.GuildRoleCreate)) {
+	aBot.Session.AddHandler(aHandler)
+}
+func (aBot *Bot) onGuildRoleUpdate(aHandler func(*discordgo.Session, *discordgo.GuildRoleUpdate)) {
+	aBot.Session.AddHandler(aHandler)
+}
+func (aBot *Bot) onGuildRoleDelete(aHandler func(*discordgo.Session, *discordgo.GuildRoleDelete)) {
 	aBot.Session.AddHandler(aHandler)
 }

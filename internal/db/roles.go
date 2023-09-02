@@ -2,86 +2,61 @@ package db
 
 import (
 	"fmt"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
-// ロールテーブルの作成
 func (aDB *PostgresDB) CreateRolesTable() error {
-	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT NOT NULL,%s TEXT NOT NULL,UNIQUE(%s,%s))",
-		rolesTable, usersTableID, rolesTableID, usersTableID, rolesTableID)
+	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT PRIMARY KEY ,%s TEXT NOT NULL,%s BOOLEAN NOT NULL,%s BOOLEAN NOT NULL,%s BOOLEAN NOT NULL,%s INTEGER NOT NULL,%s INTEGER NOT NULL)",
+		rolesTable, rolesTableID, rolesTableName, rolesTableManaged, rolesTableMentionable, rolesTableHoist, rolesTableColor, rolesTablePosition)
 	_, tError := aDB.DB.Exec(tQuery)
 	return tError
 }
 
-// ユーザーIDを使ってmap[string]stringでロールを全て取得
-func (aDB *PostgresDB) GetAllRolesIDMapByUserID(aUserID string) (map[string]string, error) {
-	tQuery := fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1", rolesTableID, rolesTable, usersTableID)
-	tRows, tError := aDB.DB.Query(tQuery, aUserID)
+// ロールが存在するか確認する
+func (aDB *PostgresDB) IsExistsRoleByID(aRoleID string) (bool, error) {
+	tQuery := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE %s=$1)", rolesTable, rolesTableID)
+	tRow := aDB.DB.QueryRow(tQuery, aRoleID)
+	var tExists bool
+	tError := tRow.Scan(&tExists)
+	return tExists, tError
+}
+
+// ロールを作成する
+func (aDB *PostgresDB) InsertRole(aRole *Role) error {
+	tQuery := fmt.Sprintf("INSERT INTO %s (%s,%s,%s,%s,%s,%s,%s) VALUES ($1,$2,$3,$4,$5,$6,$7)", rolesTable, rolesTableID, rolesTableName, rolesTableManaged, rolesTableMentionable, rolesTableHoist, rolesTableColor, rolesTablePosition)
+	_, tError := aDB.DB.Exec(tQuery, aRole.ID, aRole.Name, aRole.Managed, aRole.Mentionable, aRole.Hoist, aRole.Color, aRole.Position)
+	return tError
+}
+
+// ロールを削除する
+func (aDB *PostgresDB) DeleteRole(aRoleID string) error {
+	tQuery := fmt.Sprintf("DELETE FROM %s WHERE %s=$1", rolesTable, rolesTableID)
+	_, tError := aDB.DB.Exec(tQuery, aRoleID)
+	return tError
+}
+
+// ロールを更新する
+func (aDB *PostgresDB) UpdateRole(aRole *Role) error {
+	tQuery := fmt.Sprintf("UPDATE %s SET %s=$1,%s=$2,%s=$3,%s=$4,%s=$5,%s=$6 WHERE %s=$7", rolesTable, rolesTableName, rolesTableManaged, rolesTableMentionable, rolesTableHoist, rolesTableColor, rolesTablePosition, rolesTableID)
+	_, tError := aDB.DB.Exec(tQuery, aRole.Name, aRole.Managed, aRole.Mentionable, aRole.Hoist, aRole.Color, aRole.Position, aRole.ID)
+	return tError
+}
+
+// 全てのロールを取得する
+func (aDB *PostgresDB) GetAllRoles() ([]*Role, error) {
+	tQuery := fmt.Sprintf("SELECT * FROM %s", rolesTable)
+	tRows, tError := aDB.DB.Query(tQuery)
 	if tError != nil {
 		return nil, tError
 	}
 	defer tRows.Close()
-
-	tRoles := map[string]string{}
+	var tRoles []*Role
 	for tRows.Next() {
-		tRole := ""
-		if tError := tRows.Scan(&tRole); tError != nil {
+		var tRole Role
+		tError = tRows.Scan(&tRole.ID, &tRole.Name, &tRole.Managed, &tRole.Mentionable, &tRole.Hoist, &tRole.Color, &tRole.Position)
+		if tError != nil {
 			return nil, tError
 		}
-		tRoles[tRole] = tRole
-	}
-	//エラーチェック
-	if tError := tRows.Err(); tError != nil {
-		return nil, tError
-	}
-	return tRoles, nil
-}
-
-// ユーザーIDとロールIDのペアの存在確認
-func (aDB *PostgresDB) IsExistsRoleByUserID(aUserID string, aRoleID string) (bool, error) {
-	var tIsExists bool
-	tQuery := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE %s = $1 AND %s = $2)", rolesTable, usersTableID, rolesTableID)
-	if tError := aDB.DB.QueryRow(tQuery, aUserID, aRoleID).Scan(&tIsExists); tError != nil {
-		return false, tError
-	}
-	return tIsExists, nil
-}
-
-// ユーザーIDを使ってロールを追加
-func (aDB *PostgresDB) InsertRoleByUserID(aUserID string, aRoleID string) error {
-	tQuery := fmt.Sprintf("INSERT INTO %s (%s,%s) VALUES ($1,$2)", rolesTable, usersTableID, rolesTableID)
-	_, tError := aDB.DB.Exec(tQuery, aUserID, aRoleID)
-	return tError
-}
-
-// ユーザーIDを使ってロールを削除
-func (aDB *PostgresDB) DeleteRoleByUserID(aUserID string, aRoleID string) error {
-	tQuery := fmt.Sprintf("DELETE FROM %s WHERE %s = $1 AND %s = $2", rolesTable, usersTableID, rolesTableID)
-	_, tError := aDB.DB.Exec(tQuery, aUserID, aRoleID)
-	return tError
-}
-
-// ユーザーIDを使ってロールを全て取得
-func (aDB *PostgresDB) GetAllRolesIDByUserID(aUserID string) ([]string, error) {
-	tQuery := fmt.Sprintf("SELECT %s FROM %s WHERE %s = $1", rolesTableID, rolesTable, usersTableID)
-	tRows, tError := aDB.DB.Query(tQuery, aUserID)
-	if tError != nil {
-		return nil, tError
-	}
-	defer tRows.Close()
-
-	var tRoles []string
-	for tRows.Next() {
-		tRole := ""
-		if tError := tRows.Scan(&tRole); tError != nil {
-			return nil, tError
-		}
-		tRoles = append(tRoles, tRole)
-	}
-	//エラーチェック
-	if tError := tRows.Err(); tError != nil {
-		return nil, tError
+		tRoles = append(tRoles, &tRole)
 	}
 	return tRoles, nil
 }

@@ -16,6 +16,8 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+const PREFIX_COMMAND = "tracker"
+
 func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	// DiscordSession初期化
 	tSession, tError := discordgo.New("Bot " + aConfig.DiscordBotToken)
@@ -97,10 +99,17 @@ func (aBot *Bot) setEventHandlers() {
 	aBot.onVoiceStateUpdate(aBot.voiceStateUpdate)
 	// 誰かがメッセージを送信したとき。
 	aBot.onMessageCreate(aBot.messageCreate)
+	//ロールが作成されたとき。
+	aBot.onGuildRoleCreate(aBot.roleCreate)
+	//ロールが更新されたとき。
+	aBot.onGuildRoleUpdate(aBot.roleUpdate)
+	//ロールが削除されたとき。
+	aBot.onGuildRoleDelete(aBot.roleDelete)
 }
 
 // 　何かのイベントが発生したとき
 func (aBot *Bot) event(aSession *discordgo.Session, aEvent *discordgo.Event) {
+	log.Println("Debug: Event: ", aEvent.Type)
 	if aEvent.Type == "GUILD_CREATE" {
 		aBot.guildCreate(aSession, aEvent)
 	}
@@ -120,6 +129,8 @@ func (aBot *Bot) guildCreate(aSession *discordgo.Session, aEvent *discordgo.Even
 	aBot.guildCreateInitUsers(aSession, tGuildID)
 	//全てのユーザーのステータスを保存し、初期化する。
 	aBot.guildCreateInitStatuses(aSession, tGuildID, tMapRawData)
+	//全てのロール情報を保存し、初期化する。
+	aBot.guildCreateInitRoles(aSession, tGuildID)
 }
 func (aBot *Bot) guildCreateInitUsers(aSession *discordgo.Session, aGuildID string) {
 	tMembers, tError := aSession.GuildMembers(aGuildID, "", 1000)
@@ -195,6 +206,16 @@ func (aBot *Bot) guildCreateInitStatuses(aSession *discordgo.Session, aGuildID s
 		}
 	}
 }
+func (aBot *Bot) guildCreateInitRoles(aSession *discordgo.Session, aGuildID string) {
+	tRoles, tError := aSession.GuildRoles(aGuildID)
+	if tError != nil {
+		aBot.onEventError(aSession, fmt.Sprintf("guildCreate: failed to get roles: %s", tError))
+		return
+	}
+	for _, tRole := range tRoles {
+		aBot.DataManager.updateRole(tRole, db.CreateRole)
+	}
+}
 
 // 誰かがサーバーに参加したとき
 func (aBot *Bot) guildMemberAdd(aSession *discordgo.Session, aEvent *discordgo.GuildMemberAdd) {
@@ -229,6 +250,24 @@ func (aBot *Bot) guildMemberRemove(aSession *discordgo.Session, aEvent *discordg
 	}
 }
 
+// ロールが作成されたとき
+func (aBot *Bot) roleCreate(aSession *discordgo.Session, aEvent *discordgo.GuildRoleCreate) {
+	aBot.DataManager.updateRole(aEvent.Role, db.CreateRole)
+}
+
+// ロールが更新されたとき
+func (aBot *Bot) roleUpdate(aSession *discordgo.Session, aEvent *discordgo.GuildRoleUpdate) {
+	aBot.DataManager.updateRole(aEvent.Role, db.CreateRole)
+}
+
+// ロールが削除されたとき
+func (aBot *Bot) roleDelete(aSession *discordgo.Session, aEvent *discordgo.GuildRoleDelete) {
+	tRole := &discordgo.Role{
+		ID: aEvent.RoleID,
+	}
+	aBot.DataManager.updateRole(tRole, db.DeleteRole)
+}
+
 // 誰かのオンライン状態が変わったとき
 func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.PresenceUpdate) {
 	tVoiceState := &discordgo.VoiceState{
@@ -254,8 +293,6 @@ func (aBot *Bot) voiceStateUpdate(aSession *discordgo.Session, aEvent *discordgo
 	}
 }
 
-const PREFIX_COMMAND = "tracker"
-
 // 誰かがメッセージを送信したとき // apiの入出力
 func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) {
 	if aEvent.Author.ID == aSession.State.User.ID {
@@ -280,13 +317,32 @@ func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.Me
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
 	} else if tCommand == "status" { //指定したユーザーのステータスを表示する。
-		if tError := aBot.sendMessageStatuses(aSession, aEvent, tContent[5:]); tError != nil {
+		tUsersID := tContent[5:]
+		if tError := aBot.sendMessageStatuses(aSession, aEvent, tUsersID); tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
 		}
 	} else if tCommand == "statuses" { //全てのユーザーのステータスを表示する。
 		tUsersID, tError := api.GetAllUsersID(aBot.DataManager.DB)
 		if tError != nil {
 			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to get all users id: %s", tError))
+			return
+		}
+		if tError := aBot.sendMessageStatuses(aSession, aEvent, tUsersID); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
+	} else if tCommand == "roles" { //全てのロールを表示する。
+		tRoles, tError := api.GetAllRoles(aBot.DataManager.DB)
+		if tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to get all roles: %s", tError))
+			return
+		}
+		if tError := aBot.sendMessageRoles(aSession, aEvent, tRoles); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
+	} else if tCommand == "statusesbyrole" { //ロールを指定して、そのロールを持っているユーザーを表示する。
+		tUsersID, tError := api.GetUsersIDByRoleID(aBot.DataManager.DB, tContent[5])
+		if tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to get users id by role id: %s", tError))
 			return
 		}
 		if tError := aBot.sendMessageStatuses(aSession, aEvent, tUsersID); tError != nil {
@@ -364,10 +420,26 @@ func (aBot *Bot) sendMessageStatuses(aSession *discordgo.Session, aEvent *discor
 	return nil
 }
 
+func (aBot *Bot) sendMessageRoles(aSession *discordgo.Session, aEvent *discordgo.MessageCreate, aRoles []*db.Role) error {
+	tText := ""
+	for _, tRole := range aRoles {
+		if tRole.Name == "@everyone" {
+			continue
+		}
+		tText += fmt.Sprintf("%v\n", tRole)
+		tText += "\n"
+	}
+	aSession.ChannelMessageSend(aEvent.ChannelID, tText)
+
+	return nil
+}
+
 func (aBot *Bot) sendMessageHelp(aSession *discordgo.Session, aEvent *discordgo.MessageCreate) error {
 	tMessage := PREFIX_COMMAND + ",users : 全てのユーザー情報\n" +
 		PREFIX_COMMAND + ",statuses,20230101,20230131,1440 : 集計範囲と集計の分割時間(分)を指定しステータスを集計\n" +
 		PREFIX_COMMAND + ",status,20230101,20230131,1440,USER_IDs... : 指定したUser(カンマ区切り)のステータスを集計\n" +
+		PREFIX_COMMAND + ",statusesbyrole,20230101,20230131,1440,Role_ID : 指定したRoleを持つUserのステータスを集計\n" +
+		PREFIX_COMMAND + ",role : 全てのロール情報\n" +
 		PREFIX_COMMAND + ",help : ヘルプを表示\n"
 
 	aSession.ChannelMessageSend(aEvent.ChannelID, tMessage)

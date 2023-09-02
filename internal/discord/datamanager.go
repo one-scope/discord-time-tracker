@@ -2,6 +2,7 @@ package discord
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -81,13 +82,34 @@ func statusMap(aVoiceState *discordgo.VoiceState) db.VoiceState {
 	}
 	return db.VoiceOn
 }
+func (aManager *dataManager) updateRole(aRole *discordgo.Role, aAction db.RoleAction) {
+	tRole := &db.Role{
+		ID:          aRole.ID,
+		Name:        aRole.Name,
+		Managed:     aRole.Managed,
+		Mentionable: aRole.Mentionable,
+		Hoist:       aRole.Hoist,
+		Color:       aRole.Color,
+		Position:    aRole.Position,
+	}
+	tRoleWithAction := &roleWithAction{
+		Role:   tRole,
+		Action: aAction,
+	}
+	aManager.Roles = append(aManager.Roles, tRoleWithAction)
+}
 
 func (aManager *dataManager) flushData() error {
+	log.Println("Debug: Save Data To DB")
+
 	if tError := aManager.flushUsersData(); tError != nil {
 		return fmt.Errorf("failed to flush users data: %v", tError)
 	}
 	if tError := aManager.flushStatusesData(); tError != nil {
 		return fmt.Errorf("failed to flush statuses data: %v", tError)
+	}
+	if tError := aManager.flushRolesData(); tError != nil {
+		return fmt.Errorf("failed to flush roles data: %v", tError)
 	}
 	return nil
 }
@@ -117,17 +139,17 @@ func (aManager *dataManager) flushUsersData() error {
 
 	// ロール情報をDBに保存
 	for _, tUser := range aManager.UsersByID {
-		tRolesMap, tError := aManager.DB.GetAllRolesIDMapByUserID(tUser.ID)
+		tRolesMap, tError := aManager.DB.GetAllUsersRolesIDMapByUserID(tUser.ID)
 		if tError != nil {
 			return fmt.Errorf("failed to get roles: %w", tError)
 		}
 		for _, tRole := range tUser.Roles {
-			tIsExists, tError := aManager.DB.IsExistsRoleByUserID(tUser.ID, tRole)
+			tIsExists, tError := aManager.DB.IsExistsUserRoleByUserID(tUser.ID, tRole)
 			if tError != nil {
 				return fmt.Errorf("failed to check role exists: %w", tError)
 			}
 			if !tIsExists { // ロールがないなら追加
-				if tError := aManager.DB.InsertRoleByUserID(tUser.ID, tRole); tError != nil {
+				if tError := aManager.DB.InsertUserRoleByUserID(tUser.ID, tRole); tError != nil {
 					return fmt.Errorf("failed to add role: %w", tError)
 				}
 			} else { // ロールがあるなら削除対象から外す
@@ -135,7 +157,7 @@ func (aManager *dataManager) flushUsersData() error {
 			}
 		}
 		for tRole := range tRolesMap { // 削除対象のロールを削除
-			if tError := aManager.DB.DeleteRoleByUserID(tUser.ID, tRole); tError != nil {
+			if tError := aManager.DB.DeleteUserRoleByUserID(tUser.ID, tRole); tError != nil {
 				return fmt.Errorf("failed to delete role: %w", tError)
 			}
 		}
@@ -164,6 +186,43 @@ func (aManager *dataManager) flushStatusesData() error {
 
 	// メモリのステータス情報を初期化
 	aManager.StatusesByID = map[string][]*db.Statuslog{}
+
+	return nil
+}
+
+func (aManager *dataManager) flushRolesData() error {
+	// ロール情報がないなら何もしない
+	if len(aManager.Roles) == 0 {
+		return nil
+	}
+
+	// ロール情報をDBに保存
+	for _, tRole := range aManager.Roles {
+		switch tRole.Action {
+		case db.CreateRole:
+			// ロールが存在するなら更新する
+			tIsExists, tError := aManager.DB.IsExistsRoleByID(tRole.Role.ID)
+			if tError != nil {
+				return fmt.Errorf("failed to check role exists: %w", tError)
+			}
+			if tIsExists {
+				if tError := aManager.DB.UpdateRole(tRole.Role); tError != nil {
+					return fmt.Errorf("failed to update role: %w", tError)
+				}
+			} else {
+				if tError := aManager.DB.InsertRole(tRole.Role); tError != nil {
+					return fmt.Errorf("failed to add role: %w", tError)
+				}
+			}
+		case db.DeleteRole:
+			if tError := aManager.DB.DeleteRole(tRole.Role.ID); tError != nil {
+				return fmt.Errorf("failed to delete role: %w", tError)
+			}
+		}
+	}
+
+	// メモリのロール情報を初期化
+	aManager.Roles = []*roleWithAction{}
 
 	return nil
 }

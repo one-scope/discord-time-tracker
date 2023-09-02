@@ -8,8 +8,8 @@ const (
 	usersTableName     = "name"
 	usersTableIsMember = "is_member"
 
-	rolesTable   = "roles"
-	rolesTableID = "role_id"
+	usersrolesTable   = "usersroles"
+	usersrolesTableID = "usersrole_id"
 
 	statusesTable             = "statuses"
 	statusesTableID           = "statuses_id"
@@ -17,6 +17,15 @@ const (
 	statusesTableChannelID    = "channel_id"
 	statusesTableVoiceState   = "voice_state"
 	statusesTableOnlineStatus = "online_status"
+
+	rolesTable            = "roles"
+	rolesTableID          = "roles_id"
+	rolesTableName        = "roles_name"
+	rolesTableManaged     = "roles_managed"
+	rolesTableMentionable = "roles_mentionable"
+	rolesTableHoist       = "roles_hoist"
+	rolesTableColor       = "roles_color"
+	rolesTablePosition    = "roles_position"
 )
 
 type IsMember bool
@@ -48,6 +57,13 @@ const (
 	UnknownChannelID = "unknownchanneldontuse"
 )
 
+type RoleAction string
+
+const (
+	CreateRole RoleAction = "create"
+	DeleteRole RoleAction = "delete"
+)
+
 type User struct {
 	ID       string // DiscordのユーザーID
 	Name     string
@@ -62,4 +78,14 @@ type Statuslog struct {
 	ChannelID    string
 	VoiceState   VoiceState
 	OnlineStatus OnlineStatus
+}
+
+type Role struct {
+	ID          string
+	Name        string
+	Managed     bool
+	Mentionable bool
+	Hoist       bool
+	Color       int
+	Position    int
 }
