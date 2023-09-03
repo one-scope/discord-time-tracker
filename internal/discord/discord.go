@@ -24,7 +24,8 @@ func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	if tError != nil {
 		return nil, tError
 	}
-	tSession.Identify.Intents = discordgo.IntentsAll // 未実装：現在、テストのため全て許可
+	tSession.Identify.Intents = discordgo.IntentGuildMembers | discordgo.IntentGuildPresences | discordgo.IntentGuildVoiceStates | discordgo.IntentGuilds | discordgo.IntentGuildMessages
+
 	// Cron初期化
 	tCron := cron.New()
 	// DataManager初期化
