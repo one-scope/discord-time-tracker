@@ -440,7 +440,7 @@ func (aBot *Bot) sendMessageHelp(aSession *discordgo.Session, aEvent *discordgo.
 		PREFIX_COMMAND + ",statuses,20230101,20230131,1440 : 集計範囲と集計の分割時間(分)を指定しステータスを集計\n" +
 		PREFIX_COMMAND + ",status,20230101,20230131,1440,USER_IDs... : 指定したUser(カンマ区切り)のステータスを集計\n" +
 		PREFIX_COMMAND + ",statusesbyrole,20230101,20230131,1440,Role_ID : 指定したRoleを持つUserのステータスを集計\n" +
-		PREFIX_COMMAND + ",role : 全てのロール情報\n" +
+		PREFIX_COMMAND + ",roles : 全てのロール情報\n" +
 		PREFIX_COMMAND + ",help : ヘルプを表示\n"
 
 	aSession.ChannelMessageSend(aEvent.ChannelID, tMessage)
