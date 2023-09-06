@@ -11,14 +11,13 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/one-scope/discord-time-tracker/internal/api"
-	"github.com/one-scope/discord-time-tracker/internal/config"
 	"github.com/one-scope/discord-time-tracker/internal/db"
 	"github.com/robfig/cron/v3"
 )
 
 const PREFIX_COMMAND = "tracker"
 
-func New(aConfig *config.DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
+func New(aConfig *DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	// DiscordSession初期化
 	tSession, tError := discordgo.New("Bot " + aConfig.DiscordBotToken)
 	if tError != nil {

@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/one-scope/discord-time-tracker/internal/config"
 	"github.com/one-scope/discord-time-tracker/internal/db"
 	"github.com/one-scope/discord-time-tracker/internal/discord"
 )
@@ -20,27 +18,29 @@ type App struct {
 func New() (*App, error) {
 	var tError error
 
-	// 環境変数読み込み
-	tConfig := &config.Config{}
-	tConfig.LoadEnv()
-
 	// App初期化
 	tApp := &App{}
 
+	// ログ環境変数読み込み
+	tLogConfig := LoadLogConfig()
 	// ログファイル初期化
-	tApp.LogFile, tError = logSettings(tConfig.Log.FilePath)
+	tApp.LogFile, tError = logSettings(tLogConfig.FilePath)
 	if tError != nil {
 		return nil, tError
 	}
 
+	// DB環境変数読み込み
+	tDBConfig := db.LoadDBConfig()
 	// データベース初期化
-	tDB, tError := db.New(&tConfig.DB)
+	tDB, tError := db.New(&tDBConfig)
 	if tError != nil {
 		return nil, fmt.Errorf("DB init error: %w", tError)
 	}
 
+	// Discord環境変数読み込み
+	tDiscordConfig := discord.LoadDiscordBotConfig()
 	// DiscordBot初期化
-	tApp.DiscordBot, tError = discord.New(&tConfig.DiscordBot, tDB)
+	tApp.DiscordBot, tError = discord.New(&tDiscordConfig, tDB)
 	if tError != nil {
 		return nil, tError
 	}

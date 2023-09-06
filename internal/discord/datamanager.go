@@ -24,7 +24,7 @@ func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember db.
 // DataMangager(メモリ)にステータス情報を一時保存
 func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOnline db.OnlineStatus) error {
 	tNow := time.Now()
-	tUUID := fmt.Sprintf("%v", uuid.New())
+	tUUID := uuid.New().String()
 	tOnline := aManager.determineOnlineStatus(aVoiceState.UserID, aOnline)
 	tChannelID := aManager.determineChannelID(aVoiceState.UserID, aVoiceState.ChannelID)
 
