@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -90,7 +91,7 @@ func (aDB *PostgresDB) GetRecentStatusByUserIDAndTimestamp(aUserID string, aTime
 	tRow := aDB.DB.QueryRowx(tQuery, aUserID, aTimestamp)
 	tStatus := Statuslog{}
 	if tError := tRow.Scan(&tStatus.ID, &tStatus.UserID, &tStatus.Timestamp, &tStatus.ChannelID, &tStatus.VoiceState, &tStatus.OnlineStatus); tError != nil {
-		if tError == sql.ErrNoRows {
+		if errors.Is(tError, sql.ErrNoRows) {
 			return &Statuslog{
 				ChannelID:    "",
 				VoiceState:   VoiceOffline,

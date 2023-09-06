@@ -17,7 +17,7 @@ func main() {
 	}
 	defer func() {
 		if tError := tApp.Close(); tError != nil {
-			log.Fatal(tError)
+			log.Panic(tError)
 		}
 	}()
 

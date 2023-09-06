@@ -38,6 +38,8 @@ func GetTotalStatusesByUsersID(aDB *db.PostgresDB, aStart time.Time, aEnd time.T
 		StatusesByUserID: map[string][]*TotalStatus{},
 	}
 
+	tTimeNow := time.Now()
+
 	//ユーザーごとに集計
 	for _, tUserID := range tUserIDs {
 		tStatuses := []*TotalStatus{}
@@ -52,11 +54,11 @@ func GetTotalStatusesByUsersID(aDB *db.PostgresDB, aStart time.Time, aEnd time.T
 		tNowVoiceState := string(tInitLogStatuses.VoiceState)
 
 		//Periodごとに集計
-		for tStart := aStart; tStart.Before(aEnd) && tStart.Before(time.Now()); tStart = tStart.Add(aPeriod) {
+		for tStart := aStart; tStart.Before(aEnd) && tStart.Before(tTimeNow); tStart = tStart.Add(aPeriod) {
 			tNowStart := tStart
 			tNowEnd := tNowStart.Add(aPeriod)
-			if tNowEnd.After(time.Now()) { // 集計終了時間が現在より未来の場合は現在まで集計
-				tNowEnd = time.Now()
+			if tNowEnd.After(tTimeNow) { // 集計終了時間が現在より未来の場合は現在まで集計
+				tNowEnd = tTimeNow
 			}
 
 			//ステータスログを取得
