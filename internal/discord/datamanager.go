@@ -10,7 +10,7 @@ import (
 	"github.com/one-scope/discord-time-tracker/internal/db"
 )
 
-// DataMangager(メモリ)にUser情報を一時保存
+// DataManager(メモリ)にUser情報を一時保存
 func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember db.IsMember) error {
 	aManager.UsersByID[aMember.User.ID] = &db.User{
 		ID:       aMember.User.ID,
@@ -21,7 +21,7 @@ func (aManager *dataManager) updateUser(aMember *discordgo.Member, aIsMember db.
 	return nil
 }
 
-// DataMangager(メモリ)にステータス情報を一時保存
+// DataManager(メモリ)にステータス情報を一時保存
 func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOnline db.OnlineStatus) error {
 	tNow := time.Now()
 	tUUID := uuid.New().String()
@@ -36,7 +36,7 @@ func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOn
 		VoiceState:   statusMap(aVoiceState),
 		OnlineStatus: tOnline,
 	}
-	aManager.PreViusStatusLogByUserID[aVoiceState.UserID] = tStatus
+	aManager.PreviousStatusLogByUserID[aVoiceState.UserID] = tStatus
 	aManager.StatusesByID[aVoiceState.UserID] = append(aManager.StatusesByID[aVoiceState.UserID], tStatus)
 
 	return nil
@@ -46,9 +46,9 @@ func (aManager *dataManager) updateStatus(aVoiceState *discordgo.VoiceState, aOn
 func (aManager *dataManager) determineChannelID(aUserID string, aChannelID string) string {
 	tChannelID := aChannelID
 	//ステータスが分からない場合、前回のログを参照する
-	if tChannelID == db.UnknownChannelID {
-		if tPreviusLog, tOk := aManager.PreViusStatusLogByUserID[aUserID]; tOk {
-			tChannelID = tPreviusLog.ChannelID
+	if tChannelID == unknownChannelID {
+		if tPreviousLog, tOk := aManager.PreviousStatusLogByUserID[aUserID]; tOk {
+			tChannelID = tPreviousLog.ChannelID
 		} else {
 			tChannelID = ""
 		}
@@ -62,8 +62,8 @@ func (aManager *dataManager) determineOnlineStatus(aUserID string, aOnlineStatus
 	tOnlineStatus := aOnlineStatus
 	//ステータスが分からない場合、前回のログを参照する
 	if tOnlineStatus == db.UnknownOnline {
-		if tPreviusLog, tOk := aManager.PreViusStatusLogByUserID[aUserID]; tOk {
-			tOnlineStatus = tPreviusLog.OnlineStatus
+		if tPreviousLog, tOk := aManager.PreviousStatusLogByUserID[aUserID]; tOk {
+			tOnlineStatus = tPreviousLog.OnlineStatus
 		} else {
 			tOnlineStatus = db.Offline
 		}

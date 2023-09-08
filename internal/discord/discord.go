@@ -29,10 +29,10 @@ func New(aConfig *DiscordBotConfig, aDB *db.PostgresDB) (*Bot, error) {
 	tCron := cron.New()
 	// DataManager初期化
 	tManager := &dataManager{
-		UsersByID:                map[string]*db.User{},
-		StatusesByID:             map[string][]*db.Statuslog{},
-		DB:                       aDB,
-		PreViusStatusLogByUserID: map[string]*db.Statuslog{},
+		UsersByID:                 map[string]*db.User{},
+		StatusesByID:              map[string][]*db.Statuslog{},
+		DB:                        aDB,
+		PreviousStatusLogByUserID: map[string]*db.Statuslog{},
 	}
 	// Bot初期化
 	tBot := &Bot{
@@ -272,7 +272,7 @@ func (aBot *Bot) roleDelete(aSession *discordgo.Session, aEvent *discordgo.Guild
 func (aBot *Bot) presenceUpdate(aSession *discordgo.Session, aEvent *discordgo.PresenceUpdate) {
 	tVoiceState := &discordgo.VoiceState{
 		UserID:    aEvent.User.ID,
-		ChannelID: db.UnknownChannelID,
+		ChannelID: unknownChannelID,
 	}
 	tIsOnline := db.Online
 	if aEvent.Presence.Status != discordgo.StatusOnline {
@@ -311,6 +311,30 @@ func (aBot *Bot) messageCreate(aSession *discordgo.Session, aEvent *discordgo.Me
 	}
 
 	tCommand := tContent[1]
+
+	switch tCommand {
+	case "users": //全てのユーザー情報を表示する。
+		if tError := aBot.sendMessageAllUsers(aSession, aEvent); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
+	case "status": //指定したユーザーのステータスを表示する。
+		tUsersID := tContent[5:]
+		if tError := aBot.sendMessageStatuses(aSession, aEvent, tUsersID); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
+	case "statuses": //全てのユーザーのステータスを表示する。
+		tUsersID, tError := api.GetAllUsersID(aBot.DataManager.DB)
+		if tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to get all users id: %s", tError))
+			return
+		}
+		if tError := aBot.sendMessageStatuses(aSession, aEvent, tUsersID); tError != nil {
+			aBot.onEventError(aSession, fmt.Sprintf("messageCreate: failed to send message: %s", tError))
+		}
+	case "roles":
+	case "statusesbyrole":
+	default:
+	}
 
 	if tCommand == "users" { //全てのユーザー情報を表示する。
 		if tError := aBot.sendMessageAllUsers(aSession, aEvent); tError != nil {
@@ -362,8 +386,7 @@ func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discor
 	}
 	tText := ""
 	for _, tUser := range tUsers {
-		tText += fmt.Sprintf("%v\n", *tUser)
-		tText += "\n"
+		tText += fmt.Sprintf("%v\n\n", *tUser)
 	}
 	aSession.ChannelMessageSend(aEvent.ChannelID, tText)
 
@@ -372,15 +395,15 @@ func (aBot *Bot) sendMessageAllUsers(aSession *discordgo.Session, aEvent *discor
 func (aBot *Bot) sendMessageStatuses(aSession *discordgo.Session, aEvent *discordgo.MessageCreate, aUsersID []string) error {
 	// 引数パース
 	tArgs := strings.Split(aEvent.Content, ",")
-	tTimezoon, tError := time.LoadLocation("Asia/Tokyo")
+	tTimezone, tError := time.LoadLocation("Asia/Tokyo")
 	if tError != nil {
 		return fmt.Errorf("failed to load location: %w", tError)
 	}
-	tStart, tError := time.ParseInLocation("20060102", tArgs[2], tTimezoon)
+	tStart, tError := time.ParseInLocation("20060102", tArgs[2], tTimezone)
 	if tError != nil {
 		return fmt.Errorf("failed to parse start: %w", tError)
 	}
-	tEnd, tError := time.ParseInLocation("20060102", tArgs[3], tTimezoon)
+	tEnd, tError := time.ParseInLocation("20060102", tArgs[3], tTimezone)
 	if tError != nil {
 		return fmt.Errorf("failed to parse end: %w", tError)
 	}

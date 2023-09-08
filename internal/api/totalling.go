@@ -50,8 +50,8 @@ func GetTotalStatusesByUsersID(aDB *db.PostgresDB, aStart time.Time, aEnd time.T
 			return nil, tError
 		}
 		tNowChannel := tInitLogStatuses.ChannelID
-		tNowOnlineStatus := string(tInitLogStatuses.OnlineStatus)
-		tNowVoiceState := string(tInitLogStatuses.VoiceState)
+		tNowOnlineStatus := tInitLogStatuses.OnlineStatus
+		tNowVoiceState := tInitLogStatuses.VoiceState
 
 		//Periodごとに集計
 		for tStart := aStart; tStart.Before(aEnd) && tStart.Before(tTimeNow); tStart = tStart.Add(aPeriod) {
@@ -67,7 +67,7 @@ func GetTotalStatusesByUsersID(aDB *db.PostgresDB, aStart time.Time, aEnd time.T
 				return nil, tError
 			}
 			//ログがなくオフラインの場合は集計しない
-			if (len(tLogStatuses) == 0) && (tNowChannel == "") && (tNowOnlineStatus == string(db.Offline)) && (tNowVoiceState == string(db.VoiceOffline)) {
+			if (len(tLogStatuses) == 0) && (tNowChannel == "") && (tNowOnlineStatus == db.Offline) && (tNowVoiceState == db.VoiceOffline) {
 				continue
 			}
 
@@ -86,8 +86,8 @@ func GetTotalStatusesByUsersID(aDB *db.PostgresDB, aStart time.Time, aEnd time.T
 
 				//集計用ステータス更新
 				tNowChannel = tLogStatus.ChannelID
-				tNowVoiceState = string(tLogStatus.VoiceState)
-				tNowOnlineStatus = string(tLogStatus.OnlineStatus)
+				tNowVoiceState = tLogStatus.VoiceState
+				tNowOnlineStatus = tLogStatus.OnlineStatus
 				tNowStart = tLogStatus.Timestamp
 			}
 			//最後のTimeStampからPeriodの終わりまでのオンライン集計
@@ -112,13 +112,15 @@ func (aStatus *TotalStatus) totalChannel(aNowChannel string, aStartTime time.Tim
 	tChannelTotal.TotalTime += aEndTime.Sub(aStartTime)
 	aStatus.ChannelByID[aNowChannel] = tChannelTotal
 }
-func (aStatus *TotalStatus) totalVoiceState(aNowVoiceState string, aStartTime time.Time, aEndTime time.Time) {
-	tVoiceTotal := aStatus.VoiceByState[aNowVoiceState]
+func (aStatus *TotalStatus) totalVoiceState(aNowVoiceState db.VoiceState, aStartTime time.Time, aEndTime time.Time) {
+	tNowVoiceState := string(aNowVoiceState)
+	tVoiceTotal := aStatus.VoiceByState[tNowVoiceState]
 	tVoiceTotal.TotalTime += aEndTime.Sub(aStartTime)
-	aStatus.VoiceByState[aNowVoiceState] = tVoiceTotal
+	aStatus.VoiceByState[tNowVoiceState] = tVoiceTotal
 }
-func (aStatus *TotalStatus) totalOnlineStatus(aNowOnlineStatus string, aStartTime time.Time, aEndTime time.Time) {
-	tOnlineTotal := aStatus.OnlineByStatus[aNowOnlineStatus]
+func (aStatus *TotalStatus) totalOnlineStatus(aNowOnlineStatus db.OnlineStatus, aStartTime time.Time, aEndTime time.Time) {
+	tNowOnlineStatus := string(aNowOnlineStatus)
+	tOnlineTotal := aStatus.OnlineByStatus[tNowOnlineStatus]
 	tOnlineTotal.TotalTime += aEndTime.Sub(aStartTime)
-	aStatus.OnlineByStatus[aNowOnlineStatus] = tOnlineTotal
+	aStatus.OnlineByStatus[tNowOnlineStatus] = tOnlineTotal
 }

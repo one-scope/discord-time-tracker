@@ -15,24 +15,26 @@ func New(aDBConfig *DBConfig) (*PostgresDB, error) {
 	// DB接続
 	tDataSourceName := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		aDBConfig.Host, aDBConfig.Port, aDBConfig.User, aDBConfig.Password, aDBConfig.DBName)
-	tDb, tError := sqlx.Connect("postgres", tDataSourceName)
+	tDB, tError := sqlx.Connect("postgres", tDataSourceName)
 	if tError != nil {
 		return nil, tError
 	}
 
-	tPostgresDB := &PostgresDB{tDb}
+	tPostgresDB := &PostgresDB{
+		DB: tDB,
+	}
 
 	// テーブル作成
-	if tError := tPostgresDB.CreateUsersTable(); tError != nil {
+	if tError := tPostgresDB.createUsersTable(); tError != nil {
 		return nil, tError
 	}
-	if tError := tPostgresDB.CreateStatusesTable(); tError != nil {
+	if tError := tPostgresDB.createStatusesTable(); tError != nil {
 		return nil, tError
 	}
-	if tError := tPostgresDB.CreateUsersRolesTable(); tError != nil {
+	if tError := tPostgresDB.createUsersRolesTable(); tError != nil {
 		return nil, tError
 	}
-	if tError := tPostgresDB.CreateRolesTable(); tError != nil {
+	if tError := tPostgresDB.createRolesTable(); tError != nil {
 		return nil, tError
 	}
 

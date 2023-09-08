@@ -2,12 +2,10 @@ package db
 
 import (
 	"fmt"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // ロールテーブルの作成
-func (aDB *PostgresDB) CreateUsersRolesTable() error {
+func (aDB *PostgresDB) createUsersRolesTable() error {
 	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT NOT NULL,%s TEXT NOT NULL,UNIQUE(%s,%s))",
 		usersrolesTable, usersTableID, usersrolesTableID, usersTableID, usersrolesTableID)
 	_, tError := aDB.DB.Exec(tQuery)

@@ -52,11 +52,6 @@ const (
 	VoiceOn      VoiceState = "mic-on"
 )
 
-// 未実装：存在しないチャンネル名にしなければならない、どうにかできないかな
-const (
-	UnknownChannelID = "unknownchanneldontuse"
-)
-
 type RoleAction string
 
 const (

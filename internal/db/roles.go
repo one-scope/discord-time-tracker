@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func (aDB *PostgresDB) CreateRolesTable() error {
+func (aDB *PostgresDB) createRolesTable() error {
 	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT PRIMARY KEY ,%s TEXT NOT NULL,%s BOOLEAN NOT NULL,%s BOOLEAN NOT NULL,%s BOOLEAN NOT NULL,%s INTEGER NOT NULL,%s INTEGER NOT NULL)",
 		rolesTable, rolesTableID, rolesTableName, rolesTableManaged, rolesTableMentionable, rolesTableHoist, rolesTableColor, rolesTablePosition)
 	_, tError := aDB.DB.Exec(tQuery)

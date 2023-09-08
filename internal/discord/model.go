@@ -7,11 +7,11 @@ import (
 )
 
 type dataManager struct {
-	DB                       *db.PostgresDB
-	UsersByID                map[string]*db.User
-	StatusesByID             map[string][]*db.Statuslog
-	Roles                    []*roleWithAction
-	PreViusStatusLogByUserID map[string]*db.Statuslog
+	DB                        *db.PostgresDB
+	UsersByID                 map[string]*db.User
+	StatusesByID              map[string][]*db.Statuslog
+	Roles                     []*roleWithAction
+	PreviousStatusLogByUserID map[string]*db.Statuslog
 }
 
 type roleWithAction struct {
@@ -26,6 +26,11 @@ type Bot struct {
 	ErrorChannel    string
 	DataManager     *dataManager
 }
+
+// 未実装：存在しないチャンネル名にしなければならない、どうにかできないかな
+const (
+	unknownChannelID = "unknownchanneldontuse"
+)
 
 func (aBot *Bot) onEvent(aHandler func(*discordgo.Session, *discordgo.Event)) {
 	aBot.Session.AddHandler(aHandler)

@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	_ "github.com/lib/pq"
 )
 
 // ステータステーブルを作成
-func (aDB *PostgresDB) CreateStatusesTable() error {
+func (aDB *PostgresDB) createStatusesTable() error {
 	tQuery := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s TEXT PRIMARY KEY,%s TEXT NOT NULL,%s TIMESTAMP with time zone NOT NULL,%s TEXT NOT NULL,%s TEXT NOT NULL,%s TEXT NOT NULL)",
 		statusesTable, statusesTableID, usersTableID, statusesTableTimestamp, statusesTableChannelID, statusesTableVoiceState, statusesTableOnlineStatus)
 	_, tError := aDB.DB.Exec(tQuery)
