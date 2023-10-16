@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  discord-time-tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - 8033:8080
+    volumes:
+      - ./log:${LOG_FILE_BASE_PATH}
+  postgres:
+    env_file:
+      - .env
+    container_name: ${POSTGRES_HOST}
+    image: postgres:15.3
+    ports:
+      - ${POSTGRES_PORT}:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - TZ=Asia/Tokyo
+
+volumes:
+  postgres-data:
